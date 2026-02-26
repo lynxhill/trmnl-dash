@@ -188,17 +188,17 @@ export default async function handler(req, res) {
     }
 
     .weather img {
-      width: 50px;
+      width: 70px;
       margin-right: 10px;
     }
 
     .temp {
-      font-size: 30px;
+      font-size: 37px;
       font-weight: bold;
     }
 
     .desc {
-      font-size: 15px;
+      font-size: 18px;
       text-align: center;
     }
 
