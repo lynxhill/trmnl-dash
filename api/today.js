@@ -1,7 +1,31 @@
 export default async function handler(req, res) {
 
   const ICS_URL = process.env.ICS_URL;
+  const WEATHER_KEY = process.env.WEATHER_KEY;
+  const RSS_URL = process.env.RSS_URL;
+  const CITY = "Turku";
 
+  // ---------------- WEATHER ----------------
+  const weatherRes = await fetch(
+    `https://api.openweathermap.org/data/2.5/weather?q=${CITY}&units=metric&lang=fi&appid=${WEATHER_KEY}`
+  );
+  const weather = await weatherRes.json();
+
+  // ---------------- RSS ----------------
+  const feedRes = await fetch(RSS_URL);
+  const xml = await feedRes.text();
+
+  const rssItems = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
+    .slice(0,1) // vain tämän päivän
+    .map(block => {
+      let desc = block[1].match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? "";
+      desc = desc.replace(/<!\[CDATA\[|\]\]>/g, "");
+      desc = desc.replace(/<br\s*\/?>/gi, "\n");
+      desc = desc.replace(/<[^>]+>/g, "");
+      return desc;
+    });
+
+  // ---------------- CALENDAR ----------------
   const icsRes = await fetch(ICS_URL);
   const icsText = await icsRes.text();
 
@@ -26,7 +50,6 @@ export default async function handler(req, res) {
 
     const start = parseICSDate(dtStartRaw);
     const end = parseICSDate(dtEndRaw);
-
     const isAllDay = dtStartRaw && dtStartRaw.length === 8;
 
     return { summary, start, end, isAllDay };
@@ -37,9 +60,9 @@ export default async function handler(req, res) {
     e.start.getDate() === today.getDate()
   );
 
-  const allDayEvents = events.filter(e => e.isAllDay);
   const timedEvents = events.filter(e => !e.isAllDay).sort((a,b) => a.start - b.start);
 
+  // PERUSMUOTOINEN VIIKONPÄIVÄ
   const header = today.toLocaleDateString("fi-FI", {
     weekday: "long",
     day: "numeric",
@@ -48,12 +71,9 @@ export default async function handler(req, res) {
 
   const startHour = 7;
   const endHour = 18;
-  const totalHours = endHour - startHour;
+  const pixelsPerHour = 35;
+  const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
-  const pixelsPerHour = 40; // sopii TRMNL 6" korkeuteen
-  const timelineHeight = totalHours * pixelsPerHour;
-
-  // Nykyhetken viiva
   let nowLine = "";
   const now = new Date();
   if (
@@ -88,13 +108,9 @@ export default async function handler(req, res) {
     `;
   }).join("");
 
-  const hoursHtml = Array.from({length: totalHours + 1}, (_,i) => {
+  const hoursHtml = Array.from({length: (endHour-startHour)+1}, (_,i) => {
     const hour = startHour + i;
-    return `
-      <div class="hour" style="top:${i * pixelsPerHour}px;">
-        ${hour.toString().padStart(2,"0")}
-      </div>
-    `;
+    return `<div class="hour" style="top:${i * pixelsPerHour}px;">${hour}</div>`;
   }).join("");
 
   res.setHeader("Content-Type", "text/html");
@@ -107,23 +123,50 @@ export default async function handler(req, res) {
       width: 800px;
       height: 480px;
       margin: 0;
-      padding: 15px;
       font-family: sans-serif;
       background: #FFFFFF;
       color: #000000;
+      display: flex;
+    }
+
+    /* VASEN PUOLI */
+    .left {
+      width: 35%;
+      border-right: 3px solid #000000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .weather {
+      background: #AAAAAA;
+      padding: 12px;
+      flex: 1;
+      border-bottom: 2px solid #555555;
+    }
+
+    .temp {
+      font-size: 40px;
+      font-weight: bold;
+    }
+
+    .rss {
+      padding: 12px;
+      flex: 1;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+
+    /* OIKEA PUOLI */
+    .right {
+      flex: 1;
+      padding: 15px;
+      position: relative;
     }
 
     h1 {
       margin: 0 0 10px 0;
-      font-size: 26px;
+      font-size: 24px;
       text-transform: capitalize;
-    }
-
-    .allday {
-      background: #AAAAAA;
-      padding: 6px;
-      margin-bottom: 8px;
-      font-size: 13px;
     }
 
     .wrapper {
@@ -131,7 +174,7 @@ export default async function handler(req, res) {
     }
 
     .hours {
-      width: 50px;
+      width: 40px;
       position: relative;
       height: ${timelineHeight}px;
     }
@@ -139,7 +182,7 @@ export default async function handler(req, res) {
     .hour {
       position: absolute;
       right: 5px;
-      font-size: 12px;
+      font-size: 11px;
       color: #555555;
       transform: translateY(-6px);
     }
@@ -148,8 +191,8 @@ export default async function handler(req, res) {
       flex: 1;
       position: relative;
       border-left: 3px solid #000000;
+      border-right: 3px solid #000000;
       height: ${timelineHeight}px;
-      background: #FFFFFF;
     }
 
     .timeline::before {
@@ -157,7 +200,6 @@ export default async function handler(req, res) {
       position: absolute;
       left: 0;
       right: 0;
-      top: 0;
       height: 100%;
       background-image:
         repeating-linear-gradient(
@@ -171,10 +213,11 @@ export default async function handler(req, res) {
 
     .event {
       position: absolute;
-      left: 8px;
-      right: 8px;
+      left: 6px;
+      right: 6px;
       background: #555555;
       color: #FFFFFF;
+      border: 2px solid #000000;
       padding: 4px;
       font-size: 12px;
       overflow: hidden;
@@ -182,7 +225,6 @@ export default async function handler(req, res) {
 
     .time {
       font-size: 10px;
-      opacity: 0.9;
     }
 
     .now {
@@ -197,20 +239,30 @@ export default async function handler(req, res) {
   </head>
   <body>
 
-    <h1>${header}</h1>
-
-    ${allDayEvents.map(e =>
-      `<div class="allday">${e.summary}</div>`
-    ).join("")}
-
-    <div class="wrapper">
-      <div class="hours">
-        ${hoursHtml}
+    <div class="left">
+      <div class="weather">
+        <div>${weather.name}</div>
+        <div class="temp">${Math.round(weather.main.temp)}°C</div>
+        <div>${weather.weather[0].description}</div>
       </div>
 
-      <div class="timeline">
-        ${eventsHtml}
-        ${nowLine}
+      <div class="rss">
+        ${rssItems.join("")}
+      </div>
+    </div>
+
+    <div class="right">
+      <h1>${header}</h1>
+
+      <div class="wrapper">
+        <div class="hours">
+          ${hoursHtml}
+        </div>
+
+        <div class="timeline">
+          ${eventsHtml}
+          ${nowLine}
+        </div>
       </div>
     </div>
 
