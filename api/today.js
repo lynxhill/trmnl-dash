@@ -224,7 +224,7 @@ export default async function handler(req, res) {
 
     h1 {
       margin: 0 0 10px 0;
-      font-size: 24px;
+      font-size: 27px;
       text-transform: capitalize;
     }
 
@@ -241,7 +241,7 @@ export default async function handler(req, res) {
     .hour {
       position: absolute;
       right: 5px;
-      font-size: 11px;
+      font-size: 12px;
       color: #555555;
       transform: translateY(-6px);
     }
@@ -278,12 +278,12 @@ export default async function handler(req, res) {
       color: #FFFFFF;
       border: 2px solid #000000;
       padding: 4px;
-      font-size: 12px;
+      font-size: 14px;
       overflow: hidden;
     }
 
     .time {
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .now {
