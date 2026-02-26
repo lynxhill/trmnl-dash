@@ -11,12 +11,15 @@ export default async function handler(req, res) {
   );
   const weather = await weatherRes.json();
 
+  const iconCode = weather.weather[0].icon;
+  const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+
   // ---------------- RSS ----------------
   const feedRes = await fetch(RSS_URL);
   const xml = await feedRes.text();
 
   const rssItems = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
-    .slice(0,1) // vain tämän päivän
+    .slice(0,1)
     .map(block => {
       let desc = block[1].match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? "";
       desc = desc.replace(/<!\[CDATA\[|\]\]>/g, "");
@@ -43,6 +46,10 @@ export default async function handler(req, res) {
 
   const today = new Date();
 
+  const weekdays = ["sunnuntai","maanantai","tiistai","keskiviikko","torstai","perjantai","lauantai"];
+  const weekdayName = weekdays[today.getDay()];
+  const header = `${weekdayName} ${today.getDate()}.${today.getMonth()+1}.`;
+
   const events = eventBlocks.map(block => {
     const summary = block[1].match(/SUMMARY:(.*)/)?.[1] ?? "";
     const dtStartRaw = block[1].match(/DTSTART.*:(.*)/)?.[1];
@@ -50,24 +57,12 @@ export default async function handler(req, res) {
 
     const start = parseICSDate(dtStartRaw);
     const end = parseICSDate(dtEndRaw);
-    const isAllDay = dtStartRaw && dtStartRaw.length === 8;
 
-    return { summary, start, end, isAllDay };
+    return { summary, start, end };
   }).filter(e =>
     e.start &&
-    e.start.getFullYear() === today.getFullYear() &&
-    e.start.getMonth() === today.getMonth() &&
-    e.start.getDate() === today.getDate()
-  );
-
-  const timedEvents = events.filter(e => !e.isAllDay).sort((a,b) => a.start - b.start);
-
-  // PERUSMUOTOINEN VIIKONPÄIVÄ
-  const header = today.toLocaleDateString("fi-FI", {
-    weekday: "long",
-    day: "numeric",
-    month: "numeric"
-  });
+    e.start.toDateString() === today.toDateString()
+  ).sort((a,b) => a.start - b.start);
 
   const startHour = 7;
   const endHour = 18;
@@ -87,7 +82,7 @@ export default async function handler(req, res) {
     nowLine = `<div class="now" style="top:${top}px;"></div>`;
   }
 
-  const eventsHtml = timedEvents.map(e => {
+  const eventsHtml = events.map(e => {
 
     const startMinutes =
       (e.start.getHours() - startHour) * 60 + e.start.getMinutes();
@@ -98,11 +93,12 @@ export default async function handler(req, res) {
     const top = (startMinutes / 60) * pixelsPerHour;
     const height = Math.max(18, ((endMinutes - startMinutes) / 60) * pixelsPerHour);
 
+    const startTime = e.start.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
+    const endTime = e.end.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
+
     return `
       <div class="event" style="top:${top}px;height:${height}px;">
-        <div class="time">
-          ${e.start.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"})}
-        </div>
+        <div class="time">${startTime}–${endTime}</div>
         ${e.summary}
       </div>
     `;
@@ -129,7 +125,6 @@ export default async function handler(req, res) {
       display: flex;
     }
 
-    /* VASEN PUOLI */
     .left {
       width: 35%;
       border-right: 3px solid #000000;
@@ -142,10 +137,17 @@ export default async function handler(req, res) {
       padding: 12px;
       flex: 1;
       border-bottom: 2px solid #555555;
+      text-align: center;
+    }
+
+    .weather img {
+      width: 80px;
+      display: block;
+      margin: 5px auto;
     }
 
     .temp {
-      font-size: 40px;
+      font-size: 36px;
       font-weight: bold;
     }
 
@@ -156,11 +158,14 @@ export default async function handler(req, res) {
       white-space: pre-line;
     }
 
-    /* OIKEA PUOLI */
+    .rss h2 {
+      margin: 0 0 6px 0;
+      font-size: 16px;
+    }
+
     .right {
       flex: 1;
       padding: 15px;
-      position: relative;
     }
 
     h1 {
@@ -242,11 +247,13 @@ export default async function handler(req, res) {
     <div class="left">
       <div class="weather">
         <div>${weather.name}</div>
+        <img src="${iconUrl}" />
         <div class="temp">${Math.round(weather.main.temp)}°C</div>
         <div>${weather.weather[0].description}</div>
       </div>
 
       <div class="rss">
+        <h2>Ruokalista</h2>
         ${rssItems.join("")}
       </div>
     </div>
