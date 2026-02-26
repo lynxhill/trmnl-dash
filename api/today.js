@@ -140,22 +140,6 @@ export default async function handler(req, res) {
   const pixelsPerHour = 40;
   const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
-  /* ---- NOW LINE ---- */
-
-  let nowLine = "";
-
-  if (
-    helsinkiNow.getHours() >= startHour &&
-    helsinkiNow.getHours() <= endHour
-  ) {
-    const minutesFromStart =
-      (helsinkiNow.getHours() - startHour) * 60 +
-      helsinkiNow.getMinutes();
-
-    const top = (minutesFromStart / 60) * pixelsPerHour;
-
-    nowLine = `<div class="now" style="top:${top}px;"></div>`;
-  }
 
   const eventsHtml = timedEvents.map(e => {
 
@@ -304,14 +288,6 @@ export default async function handler(req, res) {
 
     .time { font-size: 12px; }
 
-    .now {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: #000000;
-    }
-
   </style>
   </head>
   <body>
@@ -343,7 +319,6 @@ export default async function handler(req, res) {
         <div class="hours">${hoursHtml}</div>
         <div class="timeline">
           ${eventsHtml}
-          ${nowLine}
         </div>
       </div>
     </div>
