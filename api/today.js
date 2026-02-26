@@ -77,12 +77,23 @@ export default async function handler(req, res) {
 
   function parseICSDate(raw) {
     if (!raw) return null;
+
+    // Jos aikaleimassa on Z (UTC), muunnetaan se oikein local-ajaksi
+    if (raw.includes("Z")) {
+      const year = raw.substring(0,4);
+      const month = raw.substring(4,6);
+      const day = raw.substring(6,8);
+      const hour = raw.substring(9,11);
+      const min = raw.substring(11,13);
+      return new Date(Date.UTC(year, month-1, day, hour, min));
+    }
+
     const year = raw.substring(0,4);
     const month = raw.substring(4,6);
     const day = raw.substring(6,8);
     const hour = raw.length > 8 ? raw.substring(9,11) : "00";
     const min = raw.length > 8 ? raw.substring(11,13) : "00";
-    return new Date(`${year}-${month}-${day}T${hour}:${min}:00`);
+    return new Date(year, month-1, day, hour, min);
   }
 
   const today = new Date();
@@ -121,6 +132,24 @@ export default async function handler(req, res) {
   const pixelsPerHour = 40;
   const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
+  /* ===== NOW LINE (korjattu) ===== */
+
+  let nowLine = "";
+  const now = new Date();
+
+  if (
+    now.getHours() >= startHour &&
+    now.getHours() <= endHour &&
+    now.toDateString() === today.toDateString()
+  ) {
+    const minutesFromStart =
+      (now.getHours() - startHour) * 60 + now.getMinutes();
+
+    const top = (minutesFromStart / 60) * pixelsPerHour;
+
+    nowLine = `<div class="now" style="top:${top}px;"></div>`;
+  }
+
   const eventsHtml = timedEvents.map(e => {
 
     const startMinutes =
@@ -147,8 +176,6 @@ export default async function handler(req, res) {
     const hour = startHour + i;
     return `<div class="hour" style="top:${i * pixelsPerHour}px;">${hour}</div>`;
   }).join("");
-
-  /* ================= RENDER ================= */
 
   res.setHeader("Content-Type", "text/html");
 
@@ -181,17 +208,9 @@ export default async function handler(req, res) {
     }
 
     .city { font-size: 14px; }
-
-    .weather-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
+    .weather-row { display: flex; align-items: center; justify-content: center; }
     .weather img { width: 70px; }
-
     .temp { font-size: 35px; font-weight: bold; }
-
     .desc { font-size: 18px; text-align: center; }
 
     .rss {
@@ -208,12 +227,16 @@ export default async function handler(req, res) {
 
     h1 { margin: 0 0 8px 0; font-size: 27px; }
 
+    /* All-day nyt aikajanan sisälle */
     .allday {
+      margin-left: 40px;
+      margin-right: 0;
       background: #AAAAAA;
       padding: 4px;
       margin-bottom: 6px;
       font-size: 13px;
-      border: 1px solid #555555;
+      border-left: 3px solid #000000;
+      border-right: 3px solid #000000;
     }
 
     .wrapper { display: flex; }
@@ -270,6 +293,14 @@ export default async function handler(req, res) {
 
     .time { font-size: 12px; }
 
+    .now {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #000000;
+    }
+
   </style>
   </head>
   <body>
@@ -299,7 +330,10 @@ export default async function handler(req, res) {
 
       <div class="wrapper">
         <div class="hours">${hoursHtml}</div>
-        <div class="timeline">${eventsHtml}</div>
+        <div class="timeline">
+          ${eventsHtml}
+          ${nowLine}
+        </div>
       </div>
     </div>
 
