@@ -214,9 +214,9 @@ export default async function handler(req, res) {
     .desc { font-size: 18px; text-align: center; }
 
     .rss {
-      padding: 10px;
+      padding: 5px;
       flex: 1;
-      font-size: 14px;
+      font-size: 13px;
       white-space: pre-line;
       overflow: hidden;
     }
