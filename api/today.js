@@ -96,7 +96,11 @@ export default async function handler(req, res) {
     return new Date(year, month-1, day, hour, min);
   }
 
-  const today = new Date();
+  const helsinkiNow = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
+
+  const today = helsinkiNow;
 
   const weekdays = ["sunnuntai","maanantai","tiistai","keskiviikko","torstai","perjantai","lauantai"];
   const weekdayName = weekdays[today.getDay()];
@@ -132,24 +136,23 @@ export default async function handler(req, res) {
   const pixelsPerHour = 40;
   const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
-  /* ===== NOW LINE (korjattu) ===== */
+ /* ===== NOW LINE (timezone oikein) ===== */
 
   let nowLine = "";
-  const now = new Date();
 
   if (
-    now.getHours() >= startHour &&
-    now.getHours() <= endHour &&
-    now.toDateString() === today.toDateString()
+    helsinkiNow.getHours() >= startHour &&
+    helsinkiNow.getHours() <= endHour &&
+    helsinkiNow.toDateString() === today.toDateString()
   ) {
     const minutesFromStart =
-      (now.getHours() - startHour) * 60 + now.getMinutes();
+      (helsinkiNow.getHours() - startHour) * 60 +
+      helsinkiNow.getMinutes();
 
     const top = (minutesFromStart / 60) * pixelsPerHour;
 
     nowLine = `<div class="now" style="top:${top}px;"></div>`;
   }
-
   const eventsHtml = timedEvents.map(e => {
 
     const startMinutes =
