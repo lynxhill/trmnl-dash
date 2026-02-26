@@ -5,7 +5,8 @@ export default async function handler(req, res) {
   const RSS_URL = process.env.RSS_URL;
   const CITY = "Pori";
 
-  // ---------------- WEATHER ----------------
+  /* ================= WEATHER ================= */
+
   const weatherRes = await fetch(
     `https://api.openweathermap.org/data/2.5/weather?q=${CITY}&units=metric&appid=${WEATHER_KEY}`
   );
@@ -16,7 +17,6 @@ export default async function handler(req, res) {
 
   const rawDescription = weather.weather[0].description.toLowerCase();
 
-  // 🔹 Englanti → Suomi sanakirja
   const wordMap = {
     light: "heikkoa",
     moderate: "kohtalaista",
@@ -41,20 +41,21 @@ export default async function handler(req, res) {
     broken: "ajoittaista",
     scattered: "hajanaista",
     few: "vähän",
-    overcast: "pilvistä"
+    overcast: "pilvistä",
+    and: "ja"
   };
 
   function translateWeather(desc) {
     return desc
       .split(/[\s,]+/)
       .map(word => wordMap[word] || word)
-      .join(" ")
-      .replace("and", "ja");
+      .join(" ");
   }
 
   const weatherDescription = translateWeather(rawDescription);
 
-  // ---------------- RSS ----------------
+  /* ================= RSS ================= */
+
   const feedRes = await fetch(RSS_URL);
   const xml = await feedRes.text();
 
@@ -68,10 +69,10 @@ export default async function handler(req, res) {
       return desc;
     });
 
-  // ---------------- CALENDAR ----------------
+  /* ================= CALENDAR ================= */
+
   const icsRes = await fetch(ICS_URL);
   const icsText = await icsRes.text();
-
   const eventBlocks = [...icsText.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/g)];
 
   function parseICSDate(raw) {
@@ -94,10 +95,8 @@ export default async function handler(req, res) {
     const summary = block[1].match(/SUMMARY:(.*)/)?.[1] ?? "";
     const dtStartRaw = block[1].match(/DTSTART.*:(.*)/)?.[1];
     const dtEndRaw = block[1].match(/DTEND.*:(.*)/)?.[1];
-
     const start = parseICSDate(dtStartRaw);
     const end = parseICSDate(dtEndRaw);
-
     return { summary, start, end };
   }).filter(e =>
     e.start &&
@@ -123,16 +122,12 @@ export default async function handler(req, res) {
   }
 
   const eventsHtml = events.map(e => {
-
     const startMinutes =
       (e.start.getHours() - startHour) * 60 + e.start.getMinutes();
-
     const endMinutes =
       (e.end.getHours() - startHour) * 60 + e.end.getMinutes();
-
     const top = (startMinutes / 60) * pixelsPerHour;
     const height = Math.max(18, ((endMinutes - startMinutes) / 60) * pixelsPerHour);
-
     const startTime = e.start.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
     const endTime = e.end.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
 
@@ -165,6 +160,8 @@ export default async function handler(req, res) {
       display: flex;
     }
 
+    /* LEFT SIDE */
+
     .left {
       width: 35%;
       border-right: 3px solid #000000;
@@ -174,34 +171,51 @@ export default async function handler(req, res) {
 
     .weather {
       background: #AAAAAA;
-      padding: 12px;
-      flex: 1;
+      padding: 8px;
+      height: 120px;
       border-bottom: 2px solid #555555;
-      text-align: center;
+    }
+
+    .city {
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .weather-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .weather img {
-      width: 80px;
-      display: block;
-      margin: 5px auto;
+      width: 50px;
+      margin-right: 10px;
     }
 
     .temp {
-      font-size: 36px;
+      font-size: 28px;
       font-weight: bold;
     }
 
+    .desc {
+      font-size: 12px;
+      text-align: center;
+    }
+
     .rss {
-      padding: 12px;
+      padding: 10px;
       flex: 1;
       font-size: 14px;
       white-space: pre-line;
+      overflow: hidden;
     }
 
     .rss h2 {
       margin: 0 0 6px 0;
-      font-size: 16px;
+      font-size: 15px;
     }
+
+    /* RIGHT SIDE */
 
     .right {
       flex: 1;
@@ -286,10 +300,12 @@ export default async function handler(req, res) {
 
     <div class="left">
       <div class="weather">
-        <div>${weather.name}</div>
-        <img src="${iconUrl}" />
-        <div class="temp">${Math.round(weather.main.temp)}°C</div>
-        <div>${weatherDescription}</div>
+        <div class="city">${weather.name}</div>
+        <div class="weather-row">
+          <img src="${iconUrl}" />
+          <div class="temp">${Math.round(weather.main.temp)}°C</div>
+        </div>
+        <div class="desc">${weatherDescription}</div>
       </div>
 
       <div class="rss">
@@ -300,12 +316,8 @@ export default async function handler(req, res) {
 
     <div class="right">
       <h1>${header}</h1>
-
       <div class="wrapper">
-        <div class="hours">
-          ${hoursHtml}
-        </div>
-
+        <div class="hours">${hoursHtml}</div>
         <div class="timeline">
           ${eventsHtml}
           ${nowLine}
