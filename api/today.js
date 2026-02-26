@@ -27,8 +27,7 @@ export default async function handler(req, res) {
     const start = parseICSDate(dtStartRaw);
     const end = parseICSDate(dtEndRaw);
 
-    const isAllDay =
-      dtStartRaw && dtStartRaw.length === 8; // YYYYMMDD
+    const isAllDay = dtStartRaw && dtStartRaw.length === 8;
 
     return { summary, start, end, isAllDay };
   }).filter(e =>
@@ -51,7 +50,7 @@ export default async function handler(req, res) {
   const endHour = 18;
   const totalHours = endHour - startHour;
 
-  const pixelsPerHour = 55; // TRMNL 6" optimointi
+  const pixelsPerHour = 40; // sopii TRMNL 6" korkeuteen
   const timelineHeight = totalHours * pixelsPerHour;
 
   // Nykyhetken viiva
@@ -77,7 +76,7 @@ export default async function handler(req, res) {
       (e.end.getHours() - startHour) * 60 + e.end.getMinutes();
 
     const top = (startMinutes / 60) * pixelsPerHour;
-    const height = Math.max(20, ((endMinutes - startMinutes) / 60) * pixelsPerHour);
+    const height = Math.max(18, ((endMinutes - startMinutes) / 60) * pixelsPerHour);
 
     return `
       <div class="event" style="top:${top}px;height:${height}px;">
@@ -105,29 +104,48 @@ export default async function handler(req, res) {
   <head>
   <style>
     body {
-      font-family: sans-serif;
       width: 800px;
       height: 480px;
       margin: 0;
-      padding: 20px;
+      padding: 15px;
+      font-family: sans-serif;
       background: #FFFFFF;
       color: #000000;
     }
 
     h1 {
       margin: 0 0 10px 0;
-      font-size: 28px;
+      font-size: 26px;
       text-transform: capitalize;
     }
 
     .allday {
       background: #AAAAAA;
       padding: 6px;
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .wrapper {
+      display: flex;
+    }
+
+    .hours {
+      width: 50px;
+      position: relative;
+      height: ${timelineHeight}px;
+    }
+
+    .hour {
+      position: absolute;
+      right: 5px;
+      font-size: 12px;
+      color: #555555;
+      transform: translateY(-6px);
     }
 
     .timeline {
+      flex: 1;
       position: relative;
       border-left: 3px solid #000000;
       height: ${timelineHeight}px;
@@ -151,28 +169,20 @@ export default async function handler(req, res) {
         );
     }
 
-    .hour {
-      position: absolute;
-      left: -45px;
-      font-size: 12px;
-      color: #555555;
-      transform: translateY(-6px);
-    }
-
     .event {
       position: absolute;
-      left: 10px;
-      right: 10px;
+      left: 8px;
+      right: 8px;
       background: #555555;
       color: #FFFFFF;
       padding: 4px;
-      font-size: 13px;
+      font-size: 12px;
       overflow: hidden;
     }
 
     .time {
-      font-size: 11px;
-      opacity: 0.8;
+      font-size: 10px;
+      opacity: 0.9;
     }
 
     .now {
@@ -193,10 +203,15 @@ export default async function handler(req, res) {
       `<div class="allday">${e.summary}</div>`
     ).join("")}
 
-    <div class="timeline">
-      ${hoursHtml}
-      ${eventsHtml}
-      ${nowLine}
+    <div class="wrapper">
+      <div class="hours">
+        ${hoursHtml}
+      </div>
+
+      <div class="timeline">
+        ${eventsHtml}
+        ${nowLine}
+      </div>
     </div>
 
   </body>
