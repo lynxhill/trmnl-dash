@@ -298,7 +298,7 @@ export default async function handler(req, res) {
 
     .event.busy { background: #555555; color: #FFFFFF; }
     .event.free { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
-    /* .event.tentative { background: #AAAAAA; color: #000000; } */
+    // .event.tentative { background: #AAAAAA; color: #000000; }
     .event.tentative { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
     .event.oof { background: #000000; color: #FFFFFF; }
 
