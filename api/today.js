@@ -14,7 +14,6 @@ export default async function handler(req, res) {
 
   const iconCode = weather.weather[0].icon;
   const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
-
   const rawDescription = weather.weather[0].description.toLowerCase();
 
   const wordMap = {
@@ -78,7 +77,6 @@ export default async function handler(req, res) {
   function parseICSDate(raw) {
     if (!raw) return null;
 
-    // Jos aikaleimassa on Z (UTC), muunnetaan se oikein local-ajaksi
     if (raw.includes("Z")) {
       const year = raw.substring(0,4);
       const month = raw.substring(4,6);
@@ -96,6 +94,7 @@ export default async function handler(req, res) {
     return new Date(year, month-1, day, hour, min);
   }
 
+  // Helsinki timezone
   const helsinkiNow = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
   );
@@ -103,21 +102,27 @@ export default async function handler(req, res) {
   const today = helsinkiNow;
 
   const weekdays = ["sunnuntai","maanantai","tiistai","keskiviikko","torstai","perjantai","lauantai"];
-  const weekdayName = weekdays[today.getDay()];
-  const header = `${weekdayName} ${today.getDate()}.${today.getMonth()+1}.`;
+  const header = `${weekdays[today.getDay()]} ${today.getDate()}.${today.getMonth()+1}.`;
 
   const events = eventBlocks.map(block => {
 
     const summary = block[1].match(/SUMMARY:(.*)/)?.[1] ?? "";
     const dtStartRaw = block[1].match(/DTSTART.*:(.*)/)?.[1];
     const dtEndRaw = block[1].match(/DTEND.*:(.*)/)?.[1];
+    const transp = block[1].match(/TRANSP:(.*)/)?.[1] ?? "";
+    const busyStatus = block[1].match(/X-MICROSOFT-CDO-BUSYSTATUS:(.*)/)?.[1] ?? "";
 
     const start = parseICSDate(dtStartRaw);
     const end = parseICSDate(dtEndRaw);
 
     const isAllDay = dtStartRaw && dtStartRaw.length === 8;
 
-    return { summary, start, end, isAllDay };
+    let status = "busy";
+    if (busyStatus === "FREE" || transp === "TRANSPARENT") status = "free";
+    if (busyStatus === "TENTATIVE") status = "tentative";
+    if (busyStatus === "OOF") status = "oof";
+
+    return { summary, start, end, isAllDay, status };
 
   }).filter(e =>
     e.start &&
@@ -125,8 +130,7 @@ export default async function handler(req, res) {
   );
 
   const allDayEvents = events.filter(e => e.isAllDay);
-  const timedEvents = events
-    .filter(e => !e.isAllDay)
+  const timedEvents = events.filter(e => !e.isAllDay)
     .sort((a,b) => a.start - b.start);
 
   /* ---- TIME SCALE 8–17 ---- */
@@ -136,14 +140,13 @@ export default async function handler(req, res) {
   const pixelsPerHour = 40;
   const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
- /* ===== NOW LINE (timezone oikein) ===== */
+  /* ---- NOW LINE ---- */
 
   let nowLine = "";
 
   if (
     helsinkiNow.getHours() >= startHour &&
-    helsinkiNow.getHours() <= endHour &&
-    helsinkiNow.toDateString() === today.toDateString()
+    helsinkiNow.getHours() <= endHour
   ) {
     const minutesFromStart =
       (helsinkiNow.getHours() - startHour) * 60 +
@@ -153,6 +156,7 @@ export default async function handler(req, res) {
 
     nowLine = `<div class="now" style="top:${top}px;"></div>`;
   }
+
   const eventsHtml = timedEvents.map(e => {
 
     const startMinutes =
@@ -168,7 +172,7 @@ export default async function handler(req, res) {
     const endTime = e.end.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
 
     return `
-      <div class="event" style="top:${top}px;height:${height}px;">
+      <div class="event ${e.status}" style="top:${top}px;height:${height}px;">
         <div class="time">${startTime}–${endTime}</div>
         ${e.summary}
       </div>
@@ -179,6 +183,8 @@ export default async function handler(req, res) {
     const hour = startHour + i;
     return `<div class="hour" style="top:${i * pixelsPerHour}px;">${hour}</div>`;
   }).join("");
+
+  /* ================= RENDER ================= */
 
   res.setHeader("Content-Type", "text/html");
 
@@ -230,10 +236,8 @@ export default async function handler(req, res) {
 
     h1 { margin: 0 0 8px 0; font-size: 27px; text-align: center;}
 
-    /* All-day nyt aikajanan sisälle */
     .allday {
       margin-left: 40px;
-      margin-right: 0;
       background: #AAAAAA;
       padding: 4px;
       margin-bottom: 6px;
@@ -286,13 +290,16 @@ export default async function handler(req, res) {
       position: absolute;
       left: 6px;
       right: 6px;
-      background: #555555;
-      color: #FFFFFF;
       border: 2px solid #000000;
       padding: 4px;
       font-size: 13px;
       overflow: hidden;
     }
+
+    .event.busy { background: #555555; color: #FFFFFF; }
+    .event.free { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
+    .event.tentative { background: #AAAAAA; color: #000000; }
+    .event.oof { background: #000000; color: #FFFFFF; }
 
     .time { font-size: 12px; }
 
