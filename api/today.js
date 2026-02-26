@@ -7,12 +7,52 @@ export default async function handler(req, res) {
 
   // ---------------- WEATHER ----------------
   const weatherRes = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?q=${CITY}&units=metric&lang=fi&appid=${WEATHER_KEY}`
+    `https://api.openweathermap.org/data/2.5/weather?q=${CITY}&units=metric&appid=${WEATHER_KEY}`
   );
   const weather = await weatherRes.json();
 
   const iconCode = weather.weather[0].icon;
   const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+
+  const rawDescription = weather.weather[0].description.toLowerCase();
+
+  // 🔹 Englanti → Suomi sanakirja
+  const wordMap = {
+    light: "heikkoa",
+    moderate: "kohtalaista",
+    heavy: "voimakasta",
+    very: "erittäin",
+    clear: "selkeää",
+    clouds: "pilvistä",
+    cloud: "pilveä",
+    rain: "sadetta",
+    drizzle: "tihkusadetta",
+    thunderstorm: "ukkosta",
+    snow: "lumisadetta",
+    mist: "sumua",
+    fog: "sumua",
+    haze: "utua",
+    smoke: "savua",
+    dust: "pölyä",
+    sand: "hiekkaa",
+    ash: "tuhkaa",
+    squall: "puuskatuulta",
+    tornado: "tornado",
+    broken: "ajoittaista",
+    scattered: "hajanaista",
+    few: "vähän",
+    overcast: "pilvistä"
+  };
+
+  function translateWeather(desc) {
+    return desc
+      .split(/[\s,]+/)
+      .map(word => wordMap[word] || word)
+      .join(" ")
+      .replace("and", "ja");
+  }
+
+  const weatherDescription = translateWeather(rawDescription);
 
   // ---------------- RSS ----------------
   const feedRes = await fetch(RSS_URL);
@@ -249,7 +289,7 @@ export default async function handler(req, res) {
         <div>${weather.name}</div>
         <img src="${iconUrl}" />
         <div class="temp">${Math.round(weather.main.temp)}°C</div>
-        <div>${weather.weather[0].description}</div>
+        <div>${weatherDescription}</div>
       </div>
 
       <div class="rss">
