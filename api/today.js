@@ -234,7 +234,7 @@ export default async function handler(req, res) {
       background: #AAAAAA;
       padding: 4px;
       margin-bottom: 6px;
-      font-size: 13px;
+      font-size: 14px;
       border-left: 3px solid #000000;
       border-right: 3px solid #000000;
     }
