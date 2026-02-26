@@ -177,7 +177,7 @@ export default async function handler(req, res) {
     }
 
     .city {
-      font-size: 12px;
+      font-size: 14px;
       text-align: left;
     }
 
@@ -193,12 +193,12 @@ export default async function handler(req, res) {
     }
 
     .temp {
-      font-size: 28px;
+      font-size: 30px;
       font-weight: bold;
     }
 
     .desc {
-      font-size: 12px;
+      font-size: 15px;
       text-align: center;
     }
 
