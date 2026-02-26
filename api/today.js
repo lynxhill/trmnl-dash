@@ -225,7 +225,7 @@ export default async function handler(req, res) {
 
     .right { flex: 1; padding: 15px; }
 
-    h1 { margin: 0 0 8px 0; font-size: 27px; }
+    h1 { margin: 0 0 8px 0; font-size: 27px; text-align: center;}
 
     /* All-day nyt aikajanan sisälle */
     .allday {
