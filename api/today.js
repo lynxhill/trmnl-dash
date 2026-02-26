@@ -92,42 +92,46 @@ export default async function handler(req, res) {
   const header = `${weekdayName} ${today.getDate()}.${today.getMonth()+1}.`;
 
   const events = eventBlocks.map(block => {
+
     const summary = block[1].match(/SUMMARY:(.*)/)?.[1] ?? "";
     const dtStartRaw = block[1].match(/DTSTART.*:(.*)/)?.[1];
     const dtEndRaw = block[1].match(/DTEND.*:(.*)/)?.[1];
+
     const start = parseICSDate(dtStartRaw);
     const end = parseICSDate(dtEndRaw);
-    return { summary, start, end };
+
+    const isAllDay = dtStartRaw && dtStartRaw.length === 8;
+
+    return { summary, start, end, isAllDay };
+
   }).filter(e =>
     e.start &&
     e.start.toDateString() === today.toDateString()
-  ).sort((a,b) => a.start - b.start);
+  );
 
-  const startHour = 7;
-  const endHour = 18;
-  const pixelsPerHour = 35;
+  const allDayEvents = events.filter(e => e.isAllDay);
+  const timedEvents = events
+    .filter(e => !e.isAllDay)
+    .sort((a,b) => a.start - b.start);
+
+  /* ---- TIME SCALE 8–17 ---- */
+
+  const startHour = 8;
+  const endHour = 17;
+  const pixelsPerHour = 40;
   const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
-  let nowLine = "";
-  const now = new Date();
-  if (
-    now.getHours() >= startHour &&
-    now.getHours() < endHour &&
-    now.toDateString() === today.toDateString()
-  ) {
-    const minutesFromStart =
-      (now.getHours() - startHour) * 60 + now.getMinutes();
-    const top = (minutesFromStart / 60) * pixelsPerHour;
-    nowLine = `<div class="now" style="top:${top}px;"></div>`;
-  }
+  const eventsHtml = timedEvents.map(e => {
 
-  const eventsHtml = events.map(e => {
     const startMinutes =
       (e.start.getHours() - startHour) * 60 + e.start.getMinutes();
+
     const endMinutes =
       (e.end.getHours() - startHour) * 60 + e.end.getMinutes();
+
     const top = (startMinutes / 60) * pixelsPerHour;
     const height = Math.max(18, ((endMinutes - startMinutes) / 60) * pixelsPerHour);
+
     const startTime = e.start.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
     const endTime = e.end.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
 
@@ -143,6 +147,8 @@ export default async function handler(req, res) {
     const hour = startHour + i;
     return `<div class="hour" style="top:${i * pixelsPerHour}px;">${hour}</div>`;
   }).join("");
+
+  /* ================= RENDER ================= */
 
   res.setHeader("Content-Type", "text/html");
 
@@ -160,8 +166,6 @@ export default async function handler(req, res) {
       display: flex;
     }
 
-    /* LEFT SIDE */
-
     .left {
       width: 35%;
       border-right: 3px solid #000000;
@@ -176,10 +180,7 @@ export default async function handler(req, res) {
       border-bottom: 2px solid #555555;
     }
 
-    .city {
-      font-size: 14px;
-      text-align: left;
-    }
+    .city { font-size: 14px; }
 
     .weather-row {
       display: flex;
@@ -187,20 +188,11 @@ export default async function handler(req, res) {
       justify-content: center;
     }
 
-    .weather img {
-      width: 70px;
-      margin-right: 10px;
-    }
+    .weather img { width: 70px; }
 
-    .temp {
-      font-size: 37px;
-      font-weight: bold;
-    }
+    .temp { font-size: 35px; font-weight: bold; }
 
-    .desc {
-      font-size: 18px;
-      text-align: center;
-    }
+    .desc { font-size: 18px; text-align: center; }
 
     .rss {
       padding: 10px;
@@ -210,27 +202,21 @@ export default async function handler(req, res) {
       overflow: hidden;
     }
 
-    .rss h2 {
-      margin: 0 0 6px 0;
-      font-size: 15px;
+    .rss h2 { margin: 0 0 6px 0; font-size: 15px; }
+
+    .right { flex: 1; padding: 15px; }
+
+    h1 { margin: 0 0 8px 0; font-size: 27px; }
+
+    .allday {
+      background: #AAAAAA;
+      padding: 4px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      border: 1px solid #555555;
     }
 
-    /* RIGHT SIDE */
-
-    .right {
-      flex: 1;
-      padding: 15px;
-    }
-
-    h1 {
-      margin: 0 0 10px 0;
-      font-size: 27px;
-      text-transform: capitalize;
-    }
-
-    .wrapper {
-      display: flex;
-    }
+    .wrapper { display: flex; }
 
     .hours {
       width: 40px;
@@ -282,17 +268,7 @@ export default async function handler(req, res) {
       overflow: hidden;
     }
 
-    .time {
-      font-size: 12px;
-    }
-
-    .now {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: #000000;
-    }
+    .time { font-size: 12px; }
 
   </style>
   </head>
@@ -316,12 +292,14 @@ export default async function handler(req, res) {
 
     <div class="right">
       <h1>${header}</h1>
+
+      ${allDayEvents.map(e =>
+        `<div class="allday">${e.summary}</div>`
+      ).join("")}
+
       <div class="wrapper">
         <div class="hours">${hoursHtml}</div>
-        <div class="timeline">
-          ${eventsHtml}
-          ${nowLine}
-        </div>
+        <div class="timeline">${eventsHtml}</div>
       </div>
     </div>
 
