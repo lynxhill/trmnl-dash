@@ -14,44 +14,64 @@ export default async function handler(req, res) {
 
   const iconCode = weather.weather[0].icon;
   const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
-  const rawDescription = weather.weather[0].description.toLowerCase();
 
-  const wordMap = {
-    light: "heikkoa",
-    moderate: "kohtalaista",
-    heavy: "voimakasta",
-    very: "erittäin",
-    clear: "selkeää",
-    clouds: "pilvistä",
-    cloud: "pilveä",
-    rain: "sadetta",
-    drizzle: "tihkusadetta",
-    thunderstorm: "ukkosta",
-    snow: "lumisadetta",
-    mist: "sumua",
-    fog: "sumua",
-    haze: "utua",
-    smoke: "savua",
-    dust: "pölyä",
-    sand: "hiekkaa",
-    ash: "tuhkaa",
-    squall: "puuskatuulta",
-    tornado: "tornado",
-    broken: "ajoittaista",
-    scattered: "hajanaista",
-    few: "vähän",
-    overcast: "pilvistä",
-    and: "ja"
-  };
+  const main = weather.weather[0].main;
+  const desc = weather.weather[0].description.toLowerCase();
 
-  function translateWeather(desc) {
-    return desc
-      .split(/[\s,]+/)
-      .map(word => wordMap[word] || word)
-      .join(" ");
+  let weatherDescription = "";
+
+  switch (main) {
+
+    case "Clear":
+      weatherDescription = "Selkeää";
+      break;
+
+    case "Clouds":
+      if (desc.includes("few"))
+        weatherDescription = "Vähän pilvistä";
+      else if (desc.includes("scattered"))
+        weatherDescription = "Puolipilvistä";
+      else if (desc.includes("broken"))
+        weatherDescription = "Pilvistä";
+      else if (desc.includes("overcast"))
+        weatherDescription = "Pilvistä";
+      else
+        weatherDescription = "Pilvistä";
+      break;
+
+    case "Rain":
+      if (desc.includes("light"))
+        weatherDescription = "Heikkoa sadetta";
+      else if (desc.includes("heavy"))
+        weatherDescription = "Voimakasta sadetta";
+      else
+        weatherDescription = "Sadetta";
+      break;
+
+    case "Drizzle":
+      weatherDescription = "Tihkusadetta";
+      break;
+
+    case "Thunderstorm":
+      weatherDescription = "Ukkosta";
+      break;
+  
+    case "Snow":
+      if (desc.includes("light"))
+        weatherDescription = "Heikkoa lumisadetta";
+      else
+        weatherDescription = "Lumisadetta";
+      break;
+
+    case "Mist":
+    case "Fog":
+    case "Haze":
+      weatherDescription = "Sumua";
+      break;
+
+    default:
+      weatherDescription = desc; // fallback
   }
-
-  const weatherDescription = translateWeather(rawDescription);
 
   /* ================= RSS ================= */
 
