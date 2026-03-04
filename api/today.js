@@ -134,6 +134,14 @@ for (const k in data) {
   const e = data[k];
   if (e.type !== "VEVENT") continue;
 
+  console.log(
+    "EVENT:",
+    e.summary,
+    "STATUS:", e.status,
+    "TRANSP:", e.transparency,
+    "BUSYSTATUS:", e["x-microsoft-cdo-busystatus"]
+  );
+  
   let status = "busy";
 
   if (e.transparency === "TRANSPARENT") {
@@ -469,4 +477,4 @@ const hoursHtml = Array.from(
   `);
 }
 
-console.log(e.summary, e.status, e["x-microsoft-cdo-busystatus"]);
+
