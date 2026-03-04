@@ -161,19 +161,6 @@ for (const k in data) {
         status
       });
 
-        if (e.transparency === "TRANSPARENT") {
-          status = "free";
-        }
-  
-        if (e.status === "TENTATIVE") {
-          status = "tentative";
-        }
-
-        if (e.status === "CANCELLED") {
-          status = "free";
-        }
-      });
-
     }
 
   } else {
@@ -186,19 +173,6 @@ for (const k in data) {
         end: e.end,
         isAllDay: e.datetype === "date",
         status
-      });
-
-        if (e.transparency === "TRANSPARENT") {
-          status = "free";
-        }
-
-        if (e.status === "TENTATIVE") {
-          status = "tentative";
-        }
-
-        if (e.status === "CANCELLED") {
-          status = "free";
-        }
       });
 
     }
