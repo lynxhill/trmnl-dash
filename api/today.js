@@ -159,6 +159,7 @@ for (const k in data) {
         end,
         isAllDay: e.datetype === "date",
         status
+      });
 
         if (e.transparency === "TRANSPARENT") {
           status = "free";
@@ -185,6 +186,7 @@ for (const k in data) {
         end: e.end,
         isAllDay: e.datetype === "date",
         status
+      });
 
         if (e.transparency === "TRANSPARENT") {
           status = "free";
