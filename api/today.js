@@ -143,7 +143,7 @@ for (const k in data) {
   );
   
   let status = "free";
-  
+ 
   if (e["x-microsoft-cdo-busystatus"] === "TENTATIVE") {
     status = "tentative";
   }
@@ -157,6 +157,10 @@ for (const k in data) {
     e["x-microsoft-cdo-busystatus"] === "OOF"
   ) {
     status = "oof";
+  }
+  
+  if (e.transparency === "OPAQUE") {
+  status = "busy";
   }
 
   // recurring events
