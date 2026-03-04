@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
 
   const ICS_URL = process.env.ICS_URL;
   const WEATHER_KEY = process.env.WEATHER_KEY;
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
 
   /* ================= CALENDAR ================= */
 
-import ical from "node-ical";
+const ical = require("node-ical");
 
 /* ================= CALENDAR ================= */
 
