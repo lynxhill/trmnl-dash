@@ -265,6 +265,9 @@ const eventsHtml = timedEvents.map(e => {
          left:${left}%;
          width:${width}%;
          ">
+         <div class="time">${startTime}–${endTime}</div>
+         ${e.summary}
+    </div>
   `;
 
 }).join("");
