@@ -137,14 +137,21 @@ for (const k in data) {
   // recurring events
   if (e.rrule) {
 
+    e.rrule.options.tzid = helsinkiTZ;
     const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
     for (const occ of occurrences) {
 
       const duration = e.end - e.start;
 
-      const start = new Date(occ);
-      const end = new Date(start.getTime() + duration);
+      const start = new Date(
+        occ.toLocaleString("en-US", { timeZone: helsinkiTZ })
+      );
+
+      const end = new Date(
+        new Date(occ.getTime() + duration)
+          .toLocaleString("en-US", { timeZone: helsinkiTZ })
+      );
 
       events.push({
         summary: e.summary,
