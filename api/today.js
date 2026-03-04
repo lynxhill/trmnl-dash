@@ -468,3 +468,5 @@ const hoursHtml = Array.from(
   </html>
   `);
 }
+
+console.log(e.summary, e.status, e["x-microsoft-cdo-busystatus"]);
