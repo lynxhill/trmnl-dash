@@ -143,18 +143,13 @@ for (const k in data) {
   );
   
   let status = "free";
-
-  if (e.transparency === "TRANSPARENT") {
-    status = "free";
-  }
-
+  
   if (e["x-microsoft-cdo-busystatus"] === "TENTATIVE") {
     status = "tentative";
   }
 
   if (
-    e["x-microsoft-cdo-busystatus"] === "BUSY"
-  ) {
+    e.status === "BUSY") {
     status = "busy";
   }
 
