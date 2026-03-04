@@ -158,7 +158,19 @@ for (const k in data) {
         start,
         end,
         isAllDay: e.datetype === "date",
-        status: e.transparency === "TRANSPARENT" ? "free" : "busy"
+        status
+
+        if (e.transparency === "TRANSPARENT") {
+          status = "free";
+        }
+  
+        if (e.status === "TENTATIVE") {
+          status = "tentative";
+        }
+
+        if (e.status === "CANCELLED") {
+          status = "free";
+        }
       });
 
     }
@@ -172,7 +184,19 @@ for (const k in data) {
         start: e.start,
         end: e.end,
         isAllDay: e.datetype === "date",
-        status: e.transparency === "TRANSPARENT" ? "free" : "busy"
+        status
+
+        if (e.transparency === "TRANSPARENT") {
+          status = "free";
+        }
+
+        if (e.status === "TENTATIVE") {
+          status = "tentative";
+        }
+
+        if (e.status === "CANCELLED") {
+          status = "free";
+        }
       });
 
     }
