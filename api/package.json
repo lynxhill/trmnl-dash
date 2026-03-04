@@ -1,0 +1,7 @@
+{
+  "name": "trmnl-dashboard",
+  "version": "1.0.0",
+  "dependencies": {
+    "node-ical": "^0.17.0"
+  }
+}
