@@ -134,6 +134,24 @@ for (const k in data) {
   const e = data[k];
   if (e.type !== "VEVENT") continue;
 
+  let status = "busy";
+
+  if (e.transparency === "TRANSPARENT") {
+    status = "free";
+  }
+
+  if (e.status === "TENTATIVE") {
+    status = "tentative";
+  }
+
+  if (e.status === "CANCELLED") {
+    status = "free";
+  }
+
+  if (e.status === "OOF") {
+    status = "oof";
+  }
+
   // recurring events
   if (e.rrule) {
 
