@@ -152,6 +152,10 @@ for (const k in data) {
     status = "oof";
   }
 
+  if (e.status === "TENTATIVE" || e.class === "TENTATIVE") {
+  status = "tentative";
+  }
+
   // recurring events
   if (e.rrule) {
 
