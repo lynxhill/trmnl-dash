@@ -191,6 +191,35 @@ const timedEvents = events.filter(e => !e.isAllDay);
 const pixelsPerHour = 40;
 const timelineHeight = (endHour - startHour) * pixelsPerHour;
 
+/* ===== overlap layout ===== */
+
+timedEvents.forEach(e => {
+  e.column = 0;
+  e.columns = 1;
+});
+
+for (let i = 0; i < timedEvents.length; i++) {
+
+  const overlaps = [];
+
+  for (let j = 0; j < timedEvents.length; j++) {
+
+    const a = timedEvents[i];
+    const b = timedEvents[j];
+
+    if (a.start < b.end && b.start < a.end) {
+      overlaps.push(b);
+    }
+
+  }
+
+  overlaps.forEach((ev, index) => {
+    ev.column = index;
+    ev.columns = overlaps.length;
+  });
+
+}
+  
 const eventsHtml = timedEvents.map(e => {
 
   const startLocal = new Date(
@@ -225,11 +254,17 @@ const eventsHtml = timedEvents.map(e => {
     minute:"2-digit"
   });
 
+  const width = 100 / e.columns;
+  const left = e.column * width;
+  
   return `
-    <div class="event ${e.status}" style="top:${top}px;height:${height}px;">
-      <div class="time">${startTime}–${endTime}</div>
-      ${e.summary}
-    </div>
+    <div class="event ${e.status}"
+         style="
+         top:${top}px;
+         height:${height}px;
+         left:${left}%;
+         width:${width}%;
+         ">
   `;
 
 }).join("");
@@ -349,14 +384,14 @@ const hoursHtml = Array.from(
         );
     }
 
+
     .event {
       position: absolute;
-      left: 6px;
-      right: 6px;
       border: 2px solid #000000;
       padding: 4px;
       font-size: 13px;
       overflow: hidden;
+      box-sizing: border-box;
     }
 
     .event.busy { background: #555555; color: #FFFFFF; }
