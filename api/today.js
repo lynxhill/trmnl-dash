@@ -1,3 +1,5 @@
+const ical = require("node-ical");
+
 module.exports = async function handler(req, res) {
 
   const ICS_URL = process.env.ICS_URL;
@@ -88,9 +90,6 @@ module.exports = async function handler(req, res) {
       return desc;
     });
 
-  /* ================= CALENDAR ================= */
-
-const ical = require("node-ical");
 
 /* ================= CALENDAR ================= */
 
@@ -115,6 +114,19 @@ todayStart.setHours(0,0,0,0);
 const todayEnd = new Date(today);
 todayEnd.setHours(23,59,59,999);
 
+const weekdays = [
+  "sunnuntai","maanantai","tiistai",
+  "keskiviikko","torstai","perjantai","lauantai"
+];
+
+const header =
+  weekdays[today.getDay()] +
+  " " +
+  today.getDate() +
+  "." +
+  (today.getMonth()+1) +
+  ".";
+  
 let events = [];
 
 for (const k in data) {
@@ -342,7 +354,7 @@ const hoursHtml = Array.from(
 
     .event.busy { background: #555555; color: #FFFFFF; }
     .event.free { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
-    // .event.tentative { background: #AAAAAA; color: #000000; }
+/* .event.tentative { background: #AAAAAA; color: #000000; } */
     .event.tentative { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
     .event.oof { background: #000000; color: #FFFFFF; }
 
