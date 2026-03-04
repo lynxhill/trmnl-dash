@@ -142,7 +142,7 @@ for (const k in data) {
     "BUSYSTATUS:", e["X-MICROSOFT-CDO-BUSYSTATUS"]
   );
   
-  let status = "busy";
+/*  let status = "busy";
 
   const busyStatus =
     (e["x-microsoft-cdo-busystatus"] || 
@@ -163,6 +163,7 @@ for (const k in data) {
 
   /* fallback jos Outlook-kenttä puuttuu */
 
+  /*
   if (e.transparency === "TRANSPARENT") {
     status = "free";
   }
@@ -170,7 +171,25 @@ for (const k in data) {
   if (e.status === "TENTATIVE") {
     status = "tentative";
   }
+*/
 
+  let status = "busy";
+
+  const busyStatus =
+    (e["x-microsoft-cdo-busystatus"] ||
+     e["x-microsoft-busystatus"] ||
+     e.busystatus ||
+     "").toString().toUpperCase();
+
+  if (busyStatus === "FREE") status = "free";
+  if (busyStatus === "TENTATIVE") status = "tentative";
+  if (busyStatus === "OOF") status = "oof";
+
+  if (e.status === "TENTATIVE") status = "tentative";
+
+  if (e.transparency === "TRANSPARENT") status = "free";
+
+  
   // recurring events
   if (e.rrule) {
 
