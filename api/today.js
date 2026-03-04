@@ -281,6 +281,8 @@ const eventsHtml = timedEvents.map(e => {
     ((endMinutes - startMinutes) / 60) * pixelsPerHour
   );
 
+  const durationMinutes = endMinutes - startMinutes;
+
   const startTime = startLocal.toLocaleTimeString("fi-FI",{
     hour:"2-digit",
     minute:"2-digit"
@@ -294,6 +296,26 @@ const eventsHtml = timedEvents.map(e => {
   const width = 100 / e.columns;
   const left = e.column * width;
   
+  let content;
+
+  if (durationMinutes <= 30) {
+
+    content = `
+      <div class="short">
+        <span class="time">${startTime}</span>
+        <span class="title">${e.summary}</span>
+      </div>
+    `;
+
+  } else {
+
+    content = `
+      <div class="time">${startTime}–${endTime}</div>
+      <div class="title">${e.summary}</div>
+    `;
+  
+  }
+  
   return `
     <div class="event ${e.status}"
          style="
@@ -302,8 +324,7 @@ const eventsHtml = timedEvents.map(e => {
          left:${left}%;
          width:${width}%;
          ">
-         <div class="time">${startTime}–${endTime}</div>
-         ${e.summary}
+         ${content}
     </div>
   `;
 
@@ -439,6 +460,20 @@ const hoursHtml = Array.from(
     .event.tentative { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
     .event.oof { background: #000000; color: #FFFFFF; }
 
+    .short {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .short .time {
+      font-weight: bold;
+    }
+
+    .title {
+      overflow: hidden;
+    }
+    
     .time { font-size: 12px; }
 
   </style>
