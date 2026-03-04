@@ -142,25 +142,33 @@ for (const k in data) {
     "BUSYSTATUS:", e["X-MICROSOFT-CDO-BUSYSTATUS"]
   );
   
-  let status = "free";
- 
-  if (e["X-MICROSOFT-CDO-BUSYSTATUS"] === "TENTATIVE") {
+  let status = "busy";
+
+  const busyStatus =
+    (e["x-microsoft-cdo-busystatus"] || 
+     e["x-microsoft-busystatus"] || 
+     "").toUpperCase();
+
+  if (busyStatus === "FREE") {
+    status = "free";
+  }
+
+  if (busyStatus === "TENTATIVE") {
     status = "tentative";
   }
 
-  if (
-    e.status === "BUSY") {
-    status = "busy";
-  }
-
-  if (
-    e["X-MICROSOFT-CDO-BUSYSTATUS"] === "OOF"
-  ) {
+  if (busyStatus === "OOF") {
     status = "oof";
   }
-  
-  if (e.transparency === "OPAQUE") {
-  status = "busy";
+
+  /* fallback jos Outlook-kenttä puuttuu */
+
+  if (e.transparency === "TRANSPARENT") {
+    status = "free";
+  }
+
+  if (e.status === "TENTATIVE") {
+    status = "tentative";
   }
 
   // recurring events
