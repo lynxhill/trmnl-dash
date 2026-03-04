@@ -142,7 +142,7 @@ for (const k in data) {
     "BUSYSTATUS:", e["x-microsoft-cdo-busystatus"]
   );
   
-  let status = "busy";
+  let status = "free";
 
   if (e.transparency === "TRANSPARENT") {
     status = "free";
@@ -153,9 +153,9 @@ for (const k in data) {
   }
 
   if (
-    e["x-microsoft-cdo-busystatus"] === "FREE"
+    e["x-microsoft-cdo-busystatus"] === "BUSY"
   ) {
-    status = "free";
+    status = "busy";
   }
 
   if (
