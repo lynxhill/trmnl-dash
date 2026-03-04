@@ -140,20 +140,23 @@ for (const k in data) {
     status = "free";
   }
 
-  if (e.status === "TENTATIVE") {
+  if (
+    e.status === "TENTATIVE" ||
+    e["x-microsoft-cdo-busystatus"] === "TENTATIVE"
+  ) {
     status = "tentative";
   }
 
-  if (e.status === "CANCELLED") {
+  if (
+    e["x-microsoft-cdo-busystatus"] === "FREE"
+  ) {
     status = "free";
   }
 
-  if (e.status === "OOF") {
+  if (
+    e["x-microsoft-cdo-busystatus"] === "OOF"
+  ) {
     status = "oof";
-  }
-
-  if (e.status === "TENTATIVE" || e.class === "TENTATIVE") {
-  status = "tentative";
   }
 
   // recurring events
