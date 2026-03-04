@@ -139,12 +139,12 @@ for (const k in data) {
     e.summary,
     "STATUS:", e.status,
     "TRANSP:", e.transparency,
-    "BUSYSTATUS:", e["x-microsoft-cdo-busystatus"]
+    "BUSYSTATUS:", e.["X-MICROSOFT-CDO-BUSYSTATUS"]
   );
   
   let status = "free";
  
-  if (e["x-microsoft-cdo-busystatus"] === "TENTATIVE") {
+  if (e.["X-MICROSOFT-CDO-BUSYSTATUS"] === "TENTATIVE") {
     status = "tentative";
   }
 
@@ -154,7 +154,7 @@ for (const k in data) {
   }
 
   if (
-    e["x-microsoft-cdo-busystatus"] === "OOF"
+    e.["X-MICROSOFT-CDO-BUSYSTATUS"] === "OOF"
   ) {
     status = "oof";
   }
