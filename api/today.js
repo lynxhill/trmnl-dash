@@ -148,10 +148,7 @@ for (const k in data) {
     status = "free";
   }
 
-  if (
-    e.status === "TENTATIVE" ||
-    e["x-microsoft-cdo-busystatus"] === "TENTATIVE"
-  ) {
+  if (e["x-microsoft-cdo-busystatus"] === "TENTATIVE") {
     status = "tentative";
   }
 
