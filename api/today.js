@@ -208,7 +208,8 @@ for (const k in data) {
         new Date(occ.getTime() + duration)
           .toLocaleString("en-US", { timeZone: helsinkiTZ })
       );
-
+      if (e.summary?.includes("¤")) continue;
+      
       events.push({
         summary: e.summary,
         start,
@@ -221,8 +222,10 @@ for (const k in data) {
 
   } else {
 
-    if (e.start >= todayStart && e.start <= todayEnd) {
-
+    if (e.start >= todayStart && e.start <= todayEnd) 
+    {
+      if (e.summary?.includes("¤")) continue;
+      
       events.push({
         summary: e.summary,
         start: e.start,
