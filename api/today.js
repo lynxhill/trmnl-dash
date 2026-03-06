@@ -127,7 +127,6 @@ const header =
   (today.getMonth()+1) +
   ".";
   
-let events = [];
 
 let overrides = {};
 let events = [];
