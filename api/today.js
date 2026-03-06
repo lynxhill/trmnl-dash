@@ -129,87 +129,95 @@ const header =
   
 let events = [];
 
+let overrides = {};
+let events = [];
+
+/* --- kerätään ensin RECURRENCE-ID override eventit --- */
+
+for (const k in data) {
+
+  const e = data[k];
+
+  if (e.type !== "VEVENT") continue;
+
+  if (e.recurrenceid) {
+
+    const key = new Date(e.recurrenceid).toISOString().slice(0,10);
+
+    overrides[key] = e;
+
+  }
+
+}
+
+/* --- käsitellään tapahtumat --- */
+
 for (const k in data) {
 
   const e = data[k];
   if (e.type !== "VEVENT") continue;
 
-  console.log(
-    "EVENT:",
-    e.summary,
-    "STATUS:", e.status,
-    "TRANSP:", e.transparency,
-    "BUSYSTATUS:", e["X-MICROSOFT-CDO-BUSYSTATUS"]
-  );
-  
-/*  let status = "busy";
+  /* skip override events tässä vaiheessa */
 
-  const busyStatus =
-    (e["x-microsoft-cdo-busystatus"] || 
-     e["x-microsoft-busystatus"] || 
-     "").toUpperCase();
-
-  if (busyStatus === "FREE") {
-    status = "free";
-  }
-
-  if (busyStatus === "TENTATIVE") {
-    status = "tentative";
-  }
-
-  if (busyStatus === "OOF") {
-    status = "oof";
-  }
-
-  /* fallback jos Outlook-kenttä puuttuu */
-
-  /*
-  if (e.transparency === "TRANSPARENT") {
-    status = "free";
-  }
-
-  if (e.status === "TENTATIVE") {
-    status = "tentative";
-  }
-*/
+  if (e.recurrenceid) continue;
 
   let status = "busy";
 
   const busyStatus =
     (e["x-microsoft-cdo-busystatus"] ||
      e["x-microsoft-busystatus"] ||
-     e.busystatus ||
-     "").toString().toUpperCase();
+     "").toUpperCase();
 
   if (busyStatus === "FREE") status = "free";
   if (busyStatus === "TENTATIVE") status = "tentative";
   if (busyStatus === "OOF") status = "oof";
 
-  if (e.status === "TENTATIVE") status = "tentative";
-
   if (e.transparency === "TRANSPARENT") status = "free";
 
-  
-  // recurring events
+  /* --- recurring events --- */
+
   if (e.rrule) {
 
     e.rrule.options.tzid = helsinkiTZ;
+
     const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
     for (const occ of occurrences) {
 
+      const occKey = occ.toISOString().slice(0,10);
+
+      /* skip EXDATE */
+
+      if (e.exdate && e.exdate[occKey]) continue;
+
+      /* override occurrence */
+
+      if (overrides[occKey]) {
+
+        const o = overrides[occKey];
+
+        events.push({
+          summary: o.summary,
+          start: o.start,
+          end: o.end,
+          isAllDay: o.datetype === "date",
+          status
+        });
+
+        continue;
+
+      }
+
       const duration = e.end - e.start;
 
       const start = new Date(
-        occ.toLocaleString("en-US", { timeZone: helsinkiTZ })
+        occ.toLocaleString("en-US",{timeZone:helsinkiTZ})
       );
 
-      const end = new Date(
-        new Date(occ.getTime() + duration)
-          .toLocaleString("en-US", { timeZone: helsinkiTZ })
-      );
+      const end = new Date(start.getTime()+duration);
+
       if (e.summary?.includes("¤")) continue;
-      
+
       events.push({
         summary: e.summary,
         start,
@@ -220,12 +228,16 @@ for (const k in data) {
 
     }
 
-  } else {
+  }
 
-    if (e.start >= todayStart && e.start <= todayEnd) 
-    {
+  /* --- normal events --- */
+
+  else {
+
+    if (e.start >= todayStart && e.start <= todayEnd) {
+
       if (e.summary?.includes("¤")) continue;
-      
+
       events.push({
         summary: e.summary,
         start: e.start,
