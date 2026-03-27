@@ -144,13 +144,46 @@ module.exports = async function handler(req, res) {
 
           const startLocal = toLocal(e.start);
 
-          const isSameDay =
-            startLocal.getDate() === today.getDate() &&
-            startLocal.getMonth() === today.getMonth() &&
-            startLocal.getFullYear() === today.getFullYear();
+          /* ===== OIKEA FALLBACK ===== */
 
-          if (isSameDay) {
-            occurrences = [startLocal];
+          const startLocal = toLocal(e.start);
+
+          /* haetaan RRULE weekdayt */
+          const byweekday = e.rrule?.options?.byweekday;
+
+          /* jos ei ole määritelty → käytä start-päivää */
+          let matchesWeekday = false;
+
+          if (byweekday && byweekday.length > 0) {
+
+            matchesWeekday = byweekday.some(d => {
+
+              // node-ical weekday voi olla numero tai objekti
+              const weekday =
+                typeof d === "number"
+                  ? d
+                  : d.weekday;
+
+              return weekday === today.getDay();
+            });
+
+          } else {
+
+            // fallback: sama weekday kuin alkuperäinen event
+            matchesWeekday = startLocal.getDay() === today.getDay();
+          }
+
+          if (matchesWeekday) {
+
+            const occ = new Date(today);
+
+            occ.setHours(
+              startLocal.getHours(),
+              startLocal.getMinutes(),
+              0, 0
+            );
+
+            occurrences = [occ];
           }
   
         }
