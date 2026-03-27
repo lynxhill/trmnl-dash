@@ -91,7 +91,7 @@ module.exports = async function handler(req, res) {
     });
 
 
-/* ================= CALENDAR ================= */
+/* ================= CALENDAR (BULLETPROOF) ================= */
 
 const icsRes = await fetch(ICS_URL);
 const icsText = await icsRes.text();
@@ -100,13 +100,22 @@ const data = ical.sync.parseICS(icsText);
 
 const helsinkiTZ = "Europe/Helsinki";
 
-const now = new Date();
-const today = new Date(
-  now.toLocaleString("en-US", { timeZone: helsinkiTZ })
-);
+/* ---- helpers ---- */
 
-const startHour = 8;
-const endHour = 17;
+function toLocal(d){
+  return new Date(
+    new Date(d).toLocaleString("en-US",{timeZone:helsinkiTZ})
+  );
+}
+
+function dateKey(d){
+  return toLocal(d).toISOString().slice(0,10);
+}
+
+/* ---- päivärajat ---- */
+
+const now = new Date();
+const today = toLocal(now);
 
 const todayStart = new Date(today);
 todayStart.setHours(0,0,0,0);
@@ -114,51 +123,36 @@ todayStart.setHours(0,0,0,0);
 const todayEnd = new Date(today);
 todayEnd.setHours(23,59,59,999);
 
-const weekdays = [
-  "sunnuntai","maanantai","tiistai",
-  "keskiviikko","torstai","perjantai","lauantai"
-];
+/* ---- kerätään override eventit ---- */
 
-const header =
-  weekdays[today.getDay()] +
-  " " +
-  today.getDate() +
-  "." +
-  (today.getMonth()+1) +
-  ".";
-  
-
-let overrides = {};
-let events = [];
-
-/* --- kerätään ensin RECURRENCE-ID override eventit --- */
+const overrides = {};
 
 for (const k in data) {
 
   const e = data[k];
-
   if (e.type !== "VEVENT") continue;
 
   if (e.recurrenceid) {
 
-    const key = new Date(e.recurrenceid).toISOString().slice(0,10);
-
+    const key = dateKey(e.recurrenceid);
     overrides[key] = e;
 
   }
-
 }
 
-/* --- käsitellään tapahtumat --- */
+/* ---- varsinainen parsinta ---- */
+
+let events = [];
 
 for (const k in data) {
 
   const e = data[k];
   if (e.type !== "VEVENT") continue;
 
-  /* skip override events tässä vaiheessa */
-
+  /* skip override (käsitelty erikseen) */
   if (e.recurrenceid) continue;
+
+  /* ---- status ---- */
 
   let status = "busy";
 
@@ -173,98 +167,80 @@ for (const k in data) {
 
   if (e.transparency === "TRANSPARENT") status = "free";
 
-  /* --- recurring events --- */
+  /* ---- recurring ---- */
 
   if (e.rrule) {
-
-    e.rrule.options.tzid = helsinkiTZ;
-
-    let occurrences = [];
 
     try {
 
       e.rrule.options.tzid = helsinkiTZ;
 
-      occurrences = e.rrule.between(todayStart, todayEnd, true);
+      const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
-    } catch (err) {
-      console.log("RRULE ERROR", e.summary, err);
-    }
+      for (const occ of occurrences) {
 
-    /* fallback jos mitään ei tullut */
+        const key = dateKey(occ);
 
-    if (!occurrences || occurrences.length === 0) {
+        /* EXDATE */
+        if (e.exdate && Object.values(e.exdate).some(d => dateKey(d) === key)) {
+          continue;
+        }
 
-      const startLocal = new Date(
-        e.start.toLocaleString("en-US",{timeZone:helsinkiTZ})
-      );
+        /* override */
+        if (overrides[key]) {
 
-      if (startLocal.toDateString() === today.toDateString()) {
-        occurrences = [startLocal];
-      }
+          const o = overrides[key];
 
-    }
+          if (o.summary?.includes("¤")) continue;
 
-    for (const occ of occurrences) {
+          events.push({
+            summary: o.summary,
+            start: toLocal(o.start),
+            end: toLocal(o.end),
+            isAllDay: o.datetype === "date",
+            status
+          });
 
-      const occKey = occ.toISOString().slice(0,10);
+          continue;
+        }
 
-      /* skip EXDATE */
+        const duration = e.end.getTime() - e.start.getTime();
 
-      if (e.exdate && e.exdate[occKey]) continue;
+        const start = toLocal(occ);
+        const end = toLocal(new Date(occ.getTime() + duration));
 
-      /* override occurrence */
-
-      if (overrides[occKey]) {
-
-        const o = overrides[occKey];
+        if (e.summary?.includes("¤")) continue;
 
         events.push({
-          summary: o.summary,
-          start: o.start,
-          end: o.end,
-          isAllDay: o.datetype === "date",
+          summary: e.summary,
+          start,
+          end,
+          isAllDay: e.datetype === "date",
           status
         });
 
-        continue;
-
       }
 
-      const duration = e.end - e.start;
+    } catch (err) {
+      console.log("RRULE FAIL", e.summary, err);
+    }
 
-      const start = new Date(
-        occ.toLocaleString("en-US",{timeZone:helsinkiTZ})
-      );
+  }
 
-      const end = new Date(start.getTime()+duration);
+  /* ---- single event ---- */
+
+  else {
+
+    const start = toLocal(e.start);
+
+    if (start >= todayStart && start <= todayEnd) {
 
       if (e.summary?.includes("¤")) continue;
 
       events.push({
         summary: e.summary,
         start,
-        end,
-        isAllDay: e.datetype === "date",
-        status
-      });
-
-    }
-
-  }
-
-  /* --- normal events --- */
-
-  else {
-
-    if (e.start >= todayStart && e.start <= todayEnd) {
-
-      if (e.summary?.includes("¤")) continue;
-
-      events.push({
-        summary: e.summary,
-        start: e.start,
-        end: e.end,
+        end: toLocal(e.end),
         isAllDay: e.datetype === "date",
         status
       });
@@ -275,129 +251,14 @@ for (const k in data) {
 
 }
 
-events.sort((a,b) => a.start - b.start);
+/* ---- sort ---- */
+
+events.sort((a,b)=>a.start-b.start);
+
+/* ---- split ---- */
 
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
-
-/* ===== render timed events ===== */
-
-const pixelsPerHour = 40;
-const timelineHeight = (endHour - startHour) * pixelsPerHour;
-
-/* ===== overlap layout ===== */
-
-timedEvents.forEach(e => {
-  e.column = 0;
-  e.columns = 1;
-});
-
-for (let i = 0; i < timedEvents.length; i++) {
-
-  const overlaps = [];
-
-  for (let j = 0; j < timedEvents.length; j++) {
-
-    const a = timedEvents[i];
-    const b = timedEvents[j];
-
-    if (a.start < b.end && b.start < a.end) {
-      overlaps.push(b);
-    }
-
-  }
-
-  overlaps.forEach((ev, index) => {
-    ev.column = index;
-    ev.columns = overlaps.length;
-  });
-
-}
-  
-const eventsHtml = timedEvents.map(e => {
-
-  const startLocal = new Date(
-    e.start.toLocaleString("en-US",{timeZone: helsinkiTZ})
-  );
-
-  const endLocal = new Date(
-    e.end.toLocaleString("en-US",{timeZone: helsinkiTZ})
-  );
-
-  const startMinutes =
-    (startLocal.getHours() - startHour) * 60 +
-    startLocal.getMinutes();
-
-  const endMinutes =
-    (endLocal.getHours() - startHour) * 60 +
-    endLocal.getMinutes();
-
-  const top = (startMinutes / 60) * pixelsPerHour;
-  const height = Math.max(
-    18,
-    ((endMinutes - startMinutes) / 60) * pixelsPerHour
-  );
-
-  const durationMinutes = endMinutes - startMinutes;
-
-  const startTime = startLocal.toLocaleTimeString("fi-FI",{
-    hour:"2-digit",
-    minute:"2-digit"
-  });
-
-  const endTime = endLocal.toLocaleTimeString("fi-FI",{
-    hour:"2-digit",
-    minute:"2-digit"
-  });
-
-  const width = 100 / e.columns;
-  const left = e.column * width;
-  
-  let content;
-
-  if (durationMinutes <= 30) {
-
-    content = `
-      <div class="short">
-        <span class="time">${startTime}</span>
-        <span class="title">${e.summary}</span>
-      </div>
-    `;
-
-  } else {
-
-    content = `
-      <div class="time">${startTime}–${endTime}</div>
-      <div class="title">${e.summary}</div>
-    `;
-  
-  }
-  
-  return `
-    <div class="event ${e.status}"
-         style="
-         top:${top}px;
-         height:${height}px;
-         left:${left}%;
-         width:${width}%;
-         ">
-         ${content}
-    </div>
-  `;
-
-}).join("");
-
-/* ===== hour labels ===== */
-
-const hoursHtml = Array.from(
-  {length:(endHour-startHour)+1},
-  (_,i) => {
-
-    const hour = startHour+i;
-
-    return `<div class="hour" style="top:${i*pixelsPerHour}px;">${hour}</div>`;
-
-}).join("");
 
   
   /* ================= RENDER ================= */
