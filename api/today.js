@@ -260,6 +260,11 @@ events.sort((a,b)=>a.start-b.start);
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
 
+const startHour = 8;
+const endHour = 17;
+const pixelsPerHour = 40;
+
+const timelineHeight = (endHour - startHour) * pixelsPerHour;
   
   /* ================= RENDER ================= */
 
