@@ -126,37 +126,36 @@ const header =
   "." +
   (today.getMonth()+1) +
   ".";
-  
+
+/* ===== helperit ===== */
+
+const toLocal = (d) =>
+  new Date(d.toLocaleString("en-US",{timeZone: helsinkiTZ}));
+
+const eventKey = (e) =>
+  `${e.uid}_${e.start.getTime()}`;
+
+/* ===== override map (täsmällinen timestamp, EI päivä!) ===== */
 
 let overrides = {};
-let events = [];
-
-/* --- kerätään ensin RECURRENCE-ID override eventit --- */
+let eventsMap = new Map();
 
 for (const k in data) {
-
   const e = data[k];
-
   if (e.type !== "VEVENT") continue;
 
   if (e.recurrenceid) {
-
-    const key = new Date(e.recurrenceid).toISOString().slice(0,10);
-
+    const key = new Date(e.recurrenceid).getTime();
     overrides[key] = e;
-
   }
-
 }
 
-/* --- käsitellään tapahtumat --- */
+/* ===== tapahtumien käsittely ===== */
 
 for (const k in data) {
 
   const e = data[k];
   if (e.type !== "VEVENT") continue;
-
-  /* skip override events tässä vaiheessa */
 
   if (e.recurrenceid) continue;
 
@@ -173,63 +172,68 @@ for (const k in data) {
 
   if (e.transparency === "TRANSPARENT") status = "free";
 
-  /* --- recurring events --- */
+  /* ===== recurring ===== */
 
   if (e.rrule) {
 
     e.rrule.options.tzid = helsinkiTZ;
 
-    const occurrences = e.rrule.between(todayStart, todayEnd, true);
+    // 🔴 tärkeä: käytä alkuperäistä starttia
+    const rangeStart = new Date(todayStart);
+    const rangeEnd = new Date(todayEnd);
+
+    const occurrences = e.rrule.between(rangeStart, rangeEnd, true);
 
     for (const occ of occurrences) {
 
-      const occKey = occ.toISOString().slice(0,10);
+      const occTime = occ.getTime();
 
-      /* skip EXDATE */
+      if (e.exdate) {
+        const ex = Object.values(e.exdate)
+          .map(d => new Date(d).getTime());
+        if (ex.includes(occTime)) continue;
+      }
 
-      if (e.exdate && e.exdate[occKey]) continue;
+      let instance;
 
-      /* override occurrence */
+      if (overrides[occTime]) {
+        instance = overrides[occTime];
+      } else {
+        const duration = e.end - e.start;
 
-      if (overrides[occKey]) {
+        const start = toLocal(occ);
+        const end = new Date(start.getTime() + duration);
 
-        const o = overrides[occKey];
+        instance = {
+          ...e,
+          start,
+          end
+        };
+      }
 
-        events.push({
-          summary: o.summary,
-          start: o.start,
-          end: o.end,
-          isAllDay: o.datetype === "date",
+      if (instance.summary?.includes("¤")) continue;
+
+      const key = eventKey(instance);
+
+      // 🔴 deduplikointi: valitaan "paras"
+      if (!eventsMap.has(key) ||
+          instance.sequence > (eventsMap.get(key).sequence || 0)) {
+
+        eventsMap.set(key, {
+          summary: instance.summary,
+          start: instance.start,
+          end: instance.end,
+          isAllDay: instance.datetype === "date",
           status
         });
 
-        continue;
-
       }
-
-      const duration = e.end - e.start;
-
-      const start = new Date(
-        occ.toLocaleString("en-US",{timeZone:helsinkiTZ})
-      );
-
-      const end = new Date(start.getTime()+duration);
-
-      if (e.summary?.includes("¤")) continue;
-
-      events.push({
-        summary: e.summary,
-        start,
-        end,
-        isAllDay: e.datetype === "date",
-        status
-      });
 
     }
 
   }
 
-  /* --- normal events --- */
+  /* ===== normaalit ===== */
 
   else {
 
@@ -237,19 +241,30 @@ for (const k in data) {
 
       if (e.summary?.includes("¤")) continue;
 
-      events.push({
-        summary: e.summary,
-        start: e.start,
-        end: e.end,
-        isAllDay: e.datetype === "date",
-        status
-      });
+      const key = eventKey(e);
+
+      if (!eventsMap.has(key) ||
+          e.sequence > (eventsMap.get(key)?.sequence || 0)) {
+
+        eventsMap.set(key, {
+          summary: e.summary,
+          start: e.start,
+          end: e.end,
+          isAllDay: e.datetype === "date",
+          status
+        });
+
+      }
 
     }
 
   }
 
 }
+
+/* ===== array ===== */
+
+let events = Array.from(eventsMap.values());
 
 events.sort((a,b) => a.start - b.start);
 
