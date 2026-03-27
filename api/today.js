@@ -124,7 +124,36 @@ module.exports = async function handler(req, res) {
       try {
 
         e.rrule.options.tzid = helsinkiTZ;
-        const occurrences = e.rrule.between(todayStart, todayEnd, true);
+        let occurrences = [];
+    
+        try {
+
+          e.rrule.options.tzid = helsinkiTZ;
+
+          occurrences = e.rrule.between(todayStart, todayEnd, true);
+
+        } catch (err) {
+          console.log("RRULE FAIL", e.summary);
+        }
+
+        /* ===== FALLBACK (tärkein osa) ===== */
+
+        if (!occurrences || occurrences.length === 0) {
+
+          // tarkistetaan käsin osuuko event tähän päivään
+
+          const startLocal = toLocal(e.start);
+
+          const isSameDay =
+            startLocal.getDate() === today.getDate() &&
+            startLocal.getMonth() === today.getMonth() &&
+            startLocal.getFullYear() === today.getFullYear();
+
+          if (isSameDay) {
+            occurrences = [startLocal];
+          }
+  
+        }
 
         for (const occ of occurrences) {
 
@@ -281,6 +310,21 @@ module.exports = async function handler(req, res) {
     .hours { width:40px;position:relative;height:${timelineHeight}px;}
     .hour { position:absolute;right:5px;font-size:14px;color:#555;}
     .timeline { flex:1;position:relative;border-left:3px solid #000;border-right:3px solid #000;height:${timelineHeight}px;}
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 100%;
+      background-image:
+        repeating-linear-gradient(
+          to bottom,
+          #AAAAAA 0px,
+          #AAAAAA 1px,
+          transparent 1px,
+          transparent 40px
+        );
+    }
 
     .event { position:absolute;border:2px solid #000;padding:4px;font-size:12px;box-sizing:border-box;}
     .event.busy { background:#555;color:#fff;}
