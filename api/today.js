@@ -179,7 +179,31 @@ for (const k in data) {
 
     e.rrule.options.tzid = helsinkiTZ;
 
-    const occurrences = e.rrule.between(todayStart, todayEnd, true);
+    let occurrences = [];
+
+    try {
+
+      e.rrule.options.tzid = helsinkiTZ;
+
+      occurrences = e.rrule.between(todayStart, todayEnd, true);
+
+    } catch (err) {
+      console.log("RRULE ERROR", e.summary, err);
+    }
+
+    /* fallback jos mitään ei tullut */
+
+    if (!occurrences || occurrences.length === 0) {
+
+      const startLocal = new Date(
+        e.start.toLocaleString("en-US",{timeZone:helsinkiTZ})
+      );
+
+      if (startLocal.toDateString() === today.toDateString()) {
+        occurrences = [startLocal];
+      }
+
+    }
 
     for (const occ of occurrences) {
 
