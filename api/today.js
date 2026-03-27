@@ -261,33 +261,7 @@ const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
 
   
-  /* --- normal events --- */
-
-  else {
-
-    if (e.start >= todayStart && e.start <= todayEnd) {
-
-      if (e.summary?.includes("¤")) continue;
-
-      events.push({
-        summary: e.summary,
-        start: e.start,
-        end: e.end,
-        isAllDay: e.datetype === "date",
-        status
-      });
-
-    }
-
-  }
-
-}
-
-events.sort((a,b) => a.start - b.start);
-
-const allDayEvents = events.filter(e => e.isAllDay);
-const timedEvents = events.filter(e => !e.isAllDay);
-
+ 
 /* ===== render timed events ===== */
 
 const pixelsPerHour = 40;
