@@ -260,11 +260,153 @@ events.sort((a,b)=>a.start-b.start);
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
 
-const startHour = 8;
-const endHour = 17;
-const pixelsPerHour = 40;
+  
+  /* --- normal events --- */
 
+  else {
+
+    if (e.start >= todayStart && e.start <= todayEnd) {
+
+      if (e.summary?.includes("¤")) continue;
+
+      events.push({
+        summary: e.summary,
+        start: e.start,
+        end: e.end,
+        isAllDay: e.datetype === "date",
+        status
+      });
+
+    }
+
+  }
+
+}
+
+events.sort((a,b) => a.start - b.start);
+
+const allDayEvents = events.filter(e => e.isAllDay);
+const timedEvents = events.filter(e => !e.isAllDay);
+
+/* ===== render timed events ===== */
+
+const pixelsPerHour = 40;
 const timelineHeight = (endHour - startHour) * pixelsPerHour;
+
+/* ===== overlap layout ===== */
+
+timedEvents.forEach(e => {
+  e.column = 0;
+  e.columns = 1;
+});
+
+for (let i = 0; i < timedEvents.length; i++) {
+
+  const overlaps = [];
+
+  for (let j = 0; j < timedEvents.length; j++) {
+
+    const a = timedEvents[i];
+    const b = timedEvents[j];
+
+    if (a.start < b.end && b.start < a.end) {
+      overlaps.push(b);
+    }
+
+  }
+
+  overlaps.forEach((ev, index) => {
+    ev.column = index;
+    ev.columns = overlaps.length;
+  });
+
+}
+  
+const eventsHtml = timedEvents.map(e => {
+
+  const startLocal = new Date(
+    e.start.toLocaleString("en-US",{timeZone: helsinkiTZ})
+  );
+
+  const endLocal = new Date(
+    e.end.toLocaleString("en-US",{timeZone: helsinkiTZ})
+  );
+
+  const startMinutes =
+    (startLocal.getHours() - startHour) * 60 +
+    startLocal.getMinutes();
+
+  const endMinutes =
+    (endLocal.getHours() - startHour) * 60 +
+    endLocal.getMinutes();
+
+  const top = (startMinutes / 60) * pixelsPerHour;
+  const height = Math.max(
+    18,
+    ((endMinutes - startMinutes) / 60) * pixelsPerHour
+  );
+
+  const durationMinutes = endMinutes - startMinutes;
+
+  const startTime = startLocal.toLocaleTimeString("fi-FI",{
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+
+  const endTime = endLocal.toLocaleTimeString("fi-FI",{
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+
+  const width = 100 / e.columns;
+  const left = e.column * width;
+  
+  let content;
+
+  if (durationMinutes <= 30) {
+
+    content = `
+      <div class="short">
+        <span class="time">${startTime}</span>
+        <span class="title">${e.summary}</span>
+      </div>
+    `;
+
+  } else {
+
+    content = `
+      <div class="time">${startTime}–${endTime}</div>
+      <div class="title">${e.summary}</div>
+    `;
+  
+  }
+  
+  return `
+    <div class="event ${e.status}"
+         style="
+         top:${top}px;
+         height:${height}px;
+         left:${left}%;
+         width:${width}%;
+         ">
+         ${content}
+    </div>
+  `;
+
+}).join("");
+
+/* ===== hour labels ===== */
+
+const hoursHtml = Array.from(
+  {length:(endHour-startHour)+1},
+  (_,i) => {
+
+    const hour = startHour+i;
+
+    return `<div class="hour" style="top:${i*pixelsPerHour}px;">${hour}</div>`;
+
+}).join("");
+
   
   /* ================= RENDER ================= */
 
@@ -438,5 +580,4 @@ const timelineHeight = (endHour - startHour) * pixelsPerHour;
   </html>
   `);
 }
-
 
