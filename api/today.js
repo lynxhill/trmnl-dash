@@ -140,9 +140,6 @@ module.exports = async function handler(req, res) {
 
         if (!occurrences || occurrences.length === 0) {
 
-          // tarkistetaan käsin osuuko event tähän päivään
-
-          const startLocal = toLocal(e.start);
 
           /* ===== OIKEA FALLBACK ===== */
 
