@@ -225,7 +225,6 @@ for (const k in data) {
             t.hour,
             t.minute,
             t.second
-          ));
         ));
 
         const end = new Date(start.getTime() + duration);
