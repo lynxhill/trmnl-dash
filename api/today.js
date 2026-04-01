@@ -203,8 +203,6 @@ for (const k in data) {
 
         // käytä occurrencea sellaisenaan + offset alkuperäisestä eventistä
 
-        const duration = e.end - e.start;
-
         // 🔥 tärkein fix: älä tee mitään timezone-matematiikkaa
         const start = new Date(occ);
         const end = new Date(start.getTime() + duration);
