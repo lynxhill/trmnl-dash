@@ -93,6 +93,23 @@ module.exports = async function handler(req, res) {
 
 /* ================= CALENDAR ================= */
 
+const getHelsinkiTimeParts = (date) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  return {
+    hour: Number(parts.find(p => p.type === "hour").value),
+    minute: Number(parts.find(p => p.type === "minute").value),
+    second: Number(parts.find(p => p.type === "second").value)
+  };
+};
+
+  
 const icsRes = await fetch(ICS_URL);
 const icsText = await icsRes.text();
 
@@ -203,9 +220,16 @@ for (const k in data) {
           occ.getUTCFullYear(),
           occ.getUTCMonth(),
           occ.getUTCDate(),
-          e.start.getUTCHours(),
-          e.start.getUTCMinutes(),
-          e.start.getUTCSeconds()
+          const t = getHelsinkiTimeParts(e.start);
+
+          const start = new Date(Date.UTC(
+            occ.getUTCFullYear(),
+            occ.getUTCMonth(),
+            occ.getUTCDate(),
+            t.hour,
+            t.minute,
+            t.second
+          ));
         ));
 
         const end = new Date(start.getTime() + duration);
@@ -217,9 +241,16 @@ for (const k in data) {
               new Date(d).getUTCFullYear(),
               new Date(d).getUTCMonth(),
               new Date(d).getUTCDate(),
-              e.start.getUTCHours(),
-              e.start.getUTCMinutes(),
-              e.start.getUTCSeconds()
+              const t = getHelsinkiTimeParts(e.start);
+
+              const start = new Date(Date.UTC(
+                occ.getUTCFullYear(),
+                occ.getUTCMonth(),
+                occ.getUTCDate(),
+                t.hour,
+                t.minute,
+                t.second
+              ));
             ));
             return exDate.getTime();
           });
