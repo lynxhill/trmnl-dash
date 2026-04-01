@@ -93,23 +93,6 @@ module.exports = async function handler(req, res) {
 
 /* ================= CALENDAR ================= */
 
-const getHelsinkiTimeParts = (date) => {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Helsinki",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  }).formatToParts(date);
-
-  return {
-    hour: Number(parts.find(p => p.type === "hour").value),
-    minute: Number(parts.find(p => p.type === "minute").value),
-    second: Number(parts.find(p => p.type === "second").value)
-  };
-};
-
-  
 const icsRes = await fetch(ICS_URL);
 const icsText = await icsRes.text();
 
@@ -117,19 +100,20 @@ const data = ical.sync.parseICS(icsText);
 
 const helsinkiTZ = "Europe/Helsinki";
 
+/* ===== päivä ===== */
+
 const now = new Date();
 const today = new Date(
   now.toLocaleString("en-US", { timeZone: helsinkiTZ })
 );
-
-const startHour = 8;
-const endHour = 17;
 
 const todayStart = new Date(today);
 todayStart.setHours(0,0,0,0);
 
 const todayEnd = new Date(today);
 todayEnd.setHours(23,59,59,999);
+
+/* ===== header ===== */
 
 const weekdays = [
   "sunnuntai","maanantai","tiistai",
@@ -146,13 +130,27 @@ const header =
 
 /* ===== helperit ===== */
 
-const toLocal = (d) =>
-  new Date(d.toLocaleString("en-US",{timeZone: helsinkiTZ}));
+// 🔥 hakee kellonajan aina Helsinki-ajassa oikein
+const getHelsinkiTimeParts = (date) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  return {
+    hour: Number(parts.find(p => p.type === "hour").value),
+    minute: Number(parts.find(p => p.type === "minute").value),
+    second: Number(parts.find(p => p.type === "second").value)
+  };
+};
 
 const eventKey = (e) =>
   `${e.uid}_${e.start.getTime()}`;
 
-/* ===== override map (täsmällinen timestamp, EI päivä!) ===== */
+/* ===== override map ===== */
 
 let overrides = {};
 let eventsMap = new Map();
@@ -173,7 +171,6 @@ for (const k in data) {
 
   const e = data[k];
   if (e.type !== "VEVENT") continue;
-
   if (e.recurrenceid) continue;
 
   let status = "busy";
@@ -189,97 +186,102 @@ for (const k in data) {
 
   if (e.transparency === "TRANSPARENT") status = "free";
 
+  /* ===== recurring ===== */
 
-  
-/* ===== recurring ===== */
+  if (e.rrule) {
 
-if (e.rrule) {
+    e.rrule.options.tzid = helsinkiTZ;
 
-  e.rrule.options.tzid = helsinkiTZ;
+    const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
-  const rangeStart = new Date(todayStart);
-  const rangeEnd = new Date(todayEnd);
+    for (const occ of occurrences) {
 
-  const occurrences = e.rrule.between(rangeStart, rangeEnd, true);
+      const occTime = occ.getTime();
 
-  for (const occ of occurrences) {
+      let instance;
 
-    const occTime = occ.getTime();
+      if (overrides[occTime]) {
 
-    let instance;
+        instance = overrides[occTime];
 
-    if (overrides[occTime]) {
+      } else {
 
-      instance = overrides[occTime];
+        const duration = e.end - e.start;
 
-    } else {
+        // 🔥 kellonaika oikein Helsingin ajassa
+        const t = getHelsinkiTimeParts(e.start);
 
-      const duration = e.end - e.start;
+        // 🔥 rakennetaan "local wall time"
+        const local = new Date(
+          occ.getUTCFullYear(),
+          occ.getUTCMonth(),
+          occ.getUTCDate(),
+          t.hour,
+          t.minute,
+          t.second
+        );
 
-      // ✅ 1. ota kellonaika oikein (Helsinki)
-      const t = getHelsinkiTimeParts(e.start);
+        // 🔥 korjataan UTC-offset pois (Vercel fix)
+        const start = new Date(
+          local.getTime() - (new Date().getTimezoneOffset() * 60000)
+        );
 
-      // ✅ 2. rakenna occurrence start oikein UTC:na
-      const start = new Date(Date.UTC(
-        occ.getUTCFullYear(),
-        occ.getUTCMonth(),
-        occ.getUTCDate(),
-        t.hour,
-        t.minute,
-        t.second
-      ));
+        const end = new Date(start.getTime() + duration);
 
-      const end = new Date(start.getTime() + duration);
+        /* ===== EXDATE ===== */
 
-      // ✅ 3. EXDATE tarkistus (korjattu)
-      if (e.exdate) {
+        if (e.exdate) {
 
-        const ex = Object.values(e.exdate).map(d => {
+          const ex = Object.values(e.exdate).map(d => {
 
-          const dDate = new Date(d);
+            const dDate = new Date(d);
 
-          const exDate = new Date(Date.UTC(
-            dDate.getUTCFullYear(),
-            dDate.getUTCMonth(),
-            dDate.getUTCDate(),
-            t.hour,
-            t.minute,
-            t.second
-          ));
+            const exLocal = new Date(
+              dDate.getUTCFullYear(),
+              dDate.getUTCMonth(),
+              dDate.getUTCDate(),
+              t.hour,
+              t.minute,
+              t.second
+            );
 
-          return exDate.getTime();
-        });
+            const exDate = new Date(
+              exLocal.getTime() - (new Date().getTimezoneOffset() * 60000)
+            );
 
-        if (ex.includes(start.getTime())) continue;
+            return exDate.getTime();
+          });
+
+          if (ex.includes(start.getTime())) continue;
+        }
+
+        instance = {
+          ...e,
+          start,
+          end
+        };
       }
 
-      instance = {
-        ...e,
-        start,
-        end
-      };
-    }
+      if (instance.summary?.includes("¤")) continue;
 
-    if (instance.summary?.includes("¤")) continue;
+      const key = eventKey(instance);
 
-    const key = eventKey(instance);
+      if (!eventsMap.has(key) ||
+          instance.sequence > (eventsMap.get(key).sequence || 0)) {
 
-    if (!eventsMap.has(key) ||
-        instance.sequence > (eventsMap.get(key).sequence || 0)) {
+        eventsMap.set(key, {
+          summary: instance.summary,
+          start: instance.start,
+          end: instance.end,
+          isAllDay: instance.datetype === "date",
+          status
+        });
 
-      eventsMap.set(key, {
-        summary: instance.summary,
-        start: instance.start,
-        end: instance.end,
-        isAllDay: instance.datetype === "date",
-        status
-      });
+      }
 
     }
 
   }
-
-}
 
   /* ===== normaalit ===== */
 
