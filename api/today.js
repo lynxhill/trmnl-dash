@@ -1,4 +1,6 @@
-export default async function handler(req, res) {
+const ical = require("node-ical");
+
+module.exports = async function handler(req, res) {
 
   const ICS_URL = process.env.ICS_URL;
   const WEATHER_KEY = process.env.WEATHER_KEY;
@@ -88,106 +90,292 @@ export default async function handler(req, res) {
       return desc;
     });
 
-  /* ================= CALENDAR ================= */
 
-  const icsRes = await fetch(ICS_URL);
-  const icsText = await icsRes.text();
-  const eventBlocks = [...icsText.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/g)];
+/* ================= CALENDAR ================= */
 
-  function parseICSDate(raw) {
-    if (!raw) return null;
+const icsRes = await fetch(ICS_URL);
+const icsText = await icsRes.text();
 
-    if (raw.includes("Z")) {
-      const year = raw.substring(0,4);
-      const month = raw.substring(4,6);
-      const day = raw.substring(6,8);
-      const hour = raw.substring(9,11);
-      const min = raw.substring(11,13);
-      return new Date(Date.UTC(year, month-1, day, hour, min));
-    }
+const data = ical.sync.parseICS(icsText);
 
-    const year = raw.substring(0,4);
-    const month = raw.substring(4,6);
-    const day = raw.substring(6,8);
-    const hour = raw.length > 8 ? raw.substring(9,11) : "00";
-    const min = raw.length > 8 ? raw.substring(11,13) : "00";
-    return new Date(year, month-1, day, hour, min);
+const helsinkiTZ = "Europe/Helsinki";
+
+const now = new Date();
+const today = new Date(
+  now.toLocaleString("en-US", { timeZone: helsinkiTZ })
+);
+
+const startHour = 8;
+const endHour = 17;
+
+const todayStart = new Date(today);
+todayStart.setHours(0,0,0,0);
+
+const todayEnd = new Date(today);
+todayEnd.setHours(23,59,59,999);
+
+const weekdays = [
+  "sunnuntai","maanantai","tiistai",
+  "keskiviikko","torstai","perjantai","lauantai"
+];
+
+const header =
+  weekdays[today.getDay()] +
+  " " +
+  today.getDate() +
+  "." +
+  (today.getMonth()+1) +
+  ".";
+  
+
+let overrides = {};
+let events = [];
+
+/* --- kerätään ensin RECURRENCE-ID override eventit --- */
+
+for (const k in data) {
+
+  const e = data[k];
+
+  if (e.type !== "VEVENT") continue;
+
+  if (e.recurrenceid) {
+
+    const key = new Date(e.recurrenceid).toISOString().slice(0,10);
+
+    overrides[key] = e;
+
   }
 
-  // Helsinki timezone
-  const helsinkiNow = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+}
+
+/* --- käsitellään tapahtumat --- */
+
+for (const k in data) {
+
+  const e = data[k];
+  if (e.type !== "VEVENT") continue;
+
+  /* skip override events tässä vaiheessa */
+
+  if (e.recurrenceid) continue;
+
+  let status = "busy";
+
+  const busyStatus =
+    (e["x-microsoft-cdo-busystatus"] ||
+     e["x-microsoft-busystatus"] ||
+     "").toUpperCase();
+
+  if (busyStatus === "FREE") status = "free";
+  if (busyStatus === "TENTATIVE") status = "tentative";
+  if (busyStatus === "OOF") status = "oof";
+
+  if (e.transparency === "TRANSPARENT") status = "free";
+
+  /* --- recurring events --- */
+
+  if (e.rrule) {
+
+    e.rrule.options.tzid = helsinkiTZ;
+
+    const occurrences = e.rrule.between(todayStart, todayEnd, true);
+
+    for (const occ of occurrences) {
+
+      const occKey = occ.toISOString().slice(0,10);
+
+      /* skip EXDATE */
+
+      if (e.exdate && e.exdate[occKey]) continue;
+
+      /* override occurrence */
+
+      if (overrides[occKey]) {
+
+        const o = overrides[occKey];
+
+        events.push({
+          summary: o.summary,
+          start: o.start,
+          end: o.end,
+          isAllDay: o.datetype === "date",
+          status
+        });
+
+        continue;
+
+      }
+
+      const duration = e.end - e.start;
+
+      const start = new Date(
+        occ.toLocaleString("en-US",{timeZone:helsinkiTZ})
+      );
+
+      const end = new Date(start.getTime()+duration);
+
+      if (e.summary?.includes("¤")) continue;
+
+      events.push({
+        summary: e.summary,
+        start,
+        end,
+        isAllDay: e.datetype === "date",
+        status
+      });
+
+    }
+
+  }
+
+  /* --- normal events --- */
+
+  else {
+
+    if (e.start >= todayStart && e.start <= todayEnd) {
+
+      if (e.summary?.includes("¤")) continue;
+
+      events.push({
+        summary: e.summary,
+        start: e.start,
+        end: e.end,
+        isAllDay: e.datetype === "date",
+        status
+      });
+
+    }
+
+  }
+
+}
+
+events.sort((a,b) => a.start - b.start);
+
+const allDayEvents = events.filter(e => e.isAllDay);
+const timedEvents = events.filter(e => !e.isAllDay);
+
+/* ===== render timed events ===== */
+
+const pixelsPerHour = 40;
+const timelineHeight = (endHour - startHour) * pixelsPerHour;
+
+/* ===== overlap layout ===== */
+
+timedEvents.forEach(e => {
+  e.column = 0;
+  e.columns = 1;
+});
+
+for (let i = 0; i < timedEvents.length; i++) {
+
+  const overlaps = [];
+
+  for (let j = 0; j < timedEvents.length; j++) {
+
+    const a = timedEvents[i];
+    const b = timedEvents[j];
+
+    if (a.start < b.end && b.start < a.end) {
+      overlaps.push(b);
+    }
+
+  }
+
+  overlaps.forEach((ev, index) => {
+    ev.column = index;
+    ev.columns = overlaps.length;
+  });
+
+}
+  
+const eventsHtml = timedEvents.map(e => {
+
+  const startLocal = new Date(
+    e.start.toLocaleString("en-US",{timeZone: helsinkiTZ})
   );
 
-  const today = helsinkiNow;
-
-  const weekdays = ["sunnuntai","maanantai","tiistai","keskiviikko","torstai","perjantai","lauantai"];
-  const header = `${weekdays[today.getDay()]} ${today.getDate()}.${today.getMonth()+1}.`;
-
-  const events = eventBlocks.map(block => {
-
-    const summary = block[1].match(/SUMMARY:(.*)/)?.[1] ?? "";
-    const dtStartRaw = block[1].match(/DTSTART.*:(.*)/)?.[1];
-    const dtEndRaw = block[1].match(/DTEND.*:(.*)/)?.[1];
-    const transp = block[1].match(/TRANSP:(.*)/)?.[1] ?? "";
-    const busyStatus = block[1].match(/X-MICROSOFT-CDO-BUSYSTATUS:(.*)/)?.[1] ?? "";
-
-    const start = parseICSDate(dtStartRaw);
-    const end = parseICSDate(dtEndRaw);
-
-    const isAllDay = dtStartRaw && dtStartRaw.length === 8;
-
-    let status = "busy";
-    if (busyStatus === "FREE" || transp === "TRANSPARENT") status = "free";
-    if (busyStatus === "TENTATIVE") status = "tentative";
-    if (busyStatus === "OOF") status = "oof";
-
-    return { summary, start, end, isAllDay, status };
-
-  }).filter(e =>
-    e.start &&
-    e.start.toDateString() === today.toDateString()
+  const endLocal = new Date(
+    e.end.toLocaleString("en-US",{timeZone: helsinkiTZ})
   );
 
-  const allDayEvents = events.filter(e => e.isAllDay);
-  const timedEvents = events.filter(e => !e.isAllDay)
-    .sort((a,b) => a.start - b.start);
+  const startMinutes =
+    (startLocal.getHours() - startHour) * 60 +
+    startLocal.getMinutes();
 
-  /* ---- TIME SCALE 8–17 ---- */
+  const endMinutes =
+    (endLocal.getHours() - startHour) * 60 +
+    endLocal.getMinutes();
 
-  const startHour = 8;
-  const endHour = 17;
-  const pixelsPerHour = 40;
-  const timelineHeight = (endHour - startHour) * pixelsPerHour;
+  const top = (startMinutes / 60) * pixelsPerHour;
+  const height = Math.max(
+    18,
+    ((endMinutes - startMinutes) / 60) * pixelsPerHour
+  );
 
+  const durationMinutes = endMinutes - startMinutes;
 
-  const eventsHtml = timedEvents.map(e => {
+  const startTime = startLocal.toLocaleTimeString("fi-FI",{
+    hour:"2-digit",
+    minute:"2-digit"
+  });
 
-    const startMinutes =
-      (e.start.getHours() - startHour) * 60 + e.start.getMinutes();
+  const endTime = endLocal.toLocaleTimeString("fi-FI",{
+    hour:"2-digit",
+    minute:"2-digit"
+  });
 
-    const endMinutes =
-      (e.end.getHours() - startHour) * 60 + e.end.getMinutes();
+  const width = 100 / e.columns;
+  const left = e.column * width;
+  
+  let content;
 
-    const top = (startMinutes / 60) * pixelsPerHour;
-    const height = Math.max(18, ((endMinutes - startMinutes) / 60) * pixelsPerHour);
+  if (durationMinutes <= 30) {
 
-    const startTime = e.start.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
-    const endTime = e.end.toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"});
-
-    return `
-      <div class="event ${e.status}" style="top:${top}px;height:${height}px;">
-        <div class="time">${startTime}–${endTime}</div>
-        ${e.summary}
+    content = `
+      <div class="short">
+        <span class="time">${startTime}</span>
+        <span class="title">${e.summary}</span>
       </div>
     `;
-  }).join("");
 
-  const hoursHtml = Array.from({length: (endHour-startHour)+1}, (_,i) => {
-    const hour = startHour + i;
-    return `<div class="hour" style="top:${i * pixelsPerHour}px;">${hour}</div>`;
-  }).join("");
+  } else {
 
+    content = `
+      <div class="time">${startTime}–${endTime}</div>
+      <div class="title">${e.summary}</div>
+    `;
+  
+  }
+  
+  return `
+    <div class="event ${e.status}"
+         style="
+         top:${top}px;
+         height:${height}px;
+         left:${left}%;
+         width:${width}%;
+         ">
+         ${content}
+    </div>
+  `;
+
+}).join("");
+
+/* ===== hour labels ===== */
+
+const hoursHtml = Array.from(
+  {length:(endHour-startHour)+1},
+  (_,i) => {
+
+    const hour = startHour+i;
+
+    return `<div class="hour" style="top:${i*pixelsPerHour}px;">${hour}</div>`;
+
+}).join("");
+
+  
   /* ================= RENDER ================= */
 
   res.setHeader("Content-Type", "text/html");
@@ -290,22 +478,35 @@ export default async function handler(req, res) {
         );
     }
 
+
     .event {
       position: absolute;
-      left: 6px;
-      right: 6px;
       border: 2px solid #000000;
       padding: 4px;
       font-size: 13px;
       overflow: hidden;
+      box-sizing: border-box;
     }
 
     .event.busy { background: #555555; color: #FFFFFF; }
     .event.free { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
-    // .event.tentative { background: #AAAAAA; color: #000000; }
     .event.tentative { background: #FFFFFF; color: #000000; border: 2px dashed #555555; }
     .event.oof { background: #000000; color: #FFFFFF; }
 
+    .short {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .short .time {
+      font-weight: bold;
+    }
+
+    .title {
+      overflow: hidden;
+    }
+    
     .time { font-size: 12px; }
 
   </style>
