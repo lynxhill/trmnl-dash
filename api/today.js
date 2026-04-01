@@ -201,7 +201,14 @@ for (const k in data) {
       } else {
         const duration = e.end - e.start;
 
-        const start = toLocal(occ);
+        // käytä occurrencea sellaisenaan + offset alkuperäisestä eventistä
+
+        const originalStart = new Date(e.start);
+        const originalOffset =
+          originalStart.getTime() -
+          new Date(originalStart.toISOString()).getTime();
+
+        const start = new Date(occ.getTime() + originalOffset);
         const end = new Date(start.getTime() + duration);
 
         instance = {
