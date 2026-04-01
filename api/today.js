@@ -189,9 +189,18 @@ for (const k in data) {
       const occTime = occ.getTime();
 
       if (e.exdate) {
-        const ex = Object.values(e.exdate)
-          .map(d => new Date(d).getTime());
-        if (ex.includes(occTime)) continue;
+        const ex = Object.values(e.exdate).map(d => {
+          const exDate = new Date(d);
+          exDate.setHours(
+            e.start.getHours(),
+            e.start.getMinutes(),
+            e.start.getSeconds(),
+            0
+          );
+          return exDate.getTime();
+        });
+
+        if (ex.includes(start.getTime())) continue;
       }
 
       let instance;
@@ -199,13 +208,21 @@ for (const k in data) {
       if (overrides[occTime]) {
         instance = overrides[occTime];
       } else {
+
+
         const duration = e.end - e.start;
 
-        // käytä occurrencea sellaisenaan + offset alkuperäisestä eventistä
-
-        // 🔥 tärkein fix: älä tee mitään timezone-matematiikkaa
+        // 🔥 kriittinen: käytä occurrence + alkuperäinen kellonaika
         const start = new Date(occ);
-        const end = new Date(start.getTime() + duration);
+
+        start.setHours(
+          e.start.getHours(),
+          e.start.getMinutes(),
+          e.start.getSeconds(),
+          0
+        );
+
+const end = new Date(start.getTime() + duration);
 
         instance = {
           ...e,
