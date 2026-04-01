@@ -347,13 +347,8 @@ for (let i = 0; i < timedEvents.length; i++) {
   
 const eventsHtml = timedEvents.map(e => {
 
-  const startLocal = new Date(
-    e.start.toLocaleString("en-US",{timeZone: helsinkiTZ})
-  );
-
-  const endLocal = new Date(
-    e.end.toLocaleString("en-US",{timeZone: helsinkiTZ})
-  );
+  const startLocal = e.start;
+  const endLocal = e.end;
 
   const startMinutes =
     (startLocal.getHours() - startHour) * 60 +
