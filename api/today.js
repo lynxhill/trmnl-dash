@@ -100,19 +100,14 @@ const icsText = await icsRes.text();
 
 const data = ical.sync.parseICS(icsText);
 
-const helsinkiTZ = "Europe/Helsinki";
-
 /* ===== päivä ===== */
 
 const now = new Date();
-const today = new Date(
-  now.toLocaleString("en-US", { timeZone: helsinkiTZ })
-);
 
-const todayStart = new Date(today);
+const todayStart = new Date(now);
 todayStart.setHours(0,0,0,0);
 
-const todayEnd = new Date(today);
+const todayEnd = new Date(now);
 todayEnd.setHours(23,59,59,999);
 
 const startHour = 8;
@@ -126,17 +121,12 @@ const weekdays = [
 ];
 
 const header =
-  weekdays[today.getDay()] +
+  weekdays[now.getDay()] +
   " " +
-  today.getDate() +
+  now.getDate() +
   "." +
-  (today.getMonth()+1) +
+  (now.getMonth()+1) +
   ".";
-
-/* ===== helper ===== */
-
-const eventKey = (e) =>
-  `${e.uid}_${e.start.getTime()}`;
 
 /* ===== override map ===== */
 
@@ -148,12 +138,11 @@ for (const k in data) {
   if (e.type !== "VEVENT") continue;
 
   if (e.recurrenceid) {
-    const key = new Date(e.recurrenceid).getTime();
-    overrides[key] = e;
+    overrides[new Date(e.recurrenceid).getTime()] = e;
   }
 }
 
-/* ===== tapahtumien käsittely ===== */
+/* ===== tapahtumat ===== */
 
 for (const k in data) {
 
@@ -178,44 +167,13 @@ for (const k in data) {
 
   if (e.rrule) {
 
-    e.rrule.options.tzid = helsinkiTZ;
-
-    // 🔥 käytä UTC-rangea (rrule toimii UTC:ssa)
-    const rangeStartUTC = new Date(Date.UTC(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      0,0,0
-    ));
-
-    const rangeEndUTC = new Date(Date.UTC(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      23,59,59
-    ));
-
-    const occurrences = e.rrule.between(rangeStartUTC, rangeEndUTC, true);
-
-    /* 🔥 ratkaiseva offset (Outlookin oikea aika) */
-    const offset =
-      e.start.getTime() -
-      new Date(
-        e.start.getUTCFullYear(),
-        e.start.getUTCMonth(),
-        e.start.getUTCDate(),
-        e.start.getUTCHours(),
-        e.start.getUTCMinutes(),
-        e.start.getUTCSeconds()
-      ).getTime();
+    const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
     for (const occ of occurrences) {
 
       const occTime = occ.getTime();
 
       let instance;
-
-      /* ===== override ===== */
 
       if (overrides[occTime]) {
 
@@ -225,18 +183,30 @@ for (const k in data) {
 
         const duration = e.end - e.start;
 
-        /* 🔥 käytä occurrence + offset */
-        const start = new Date(occ.getTime() + offset);
+        // 🔥 yksinkertainen ja toimiva:
+        // käytä occurrence päivää + alkuperäisen eventin kellonaikaa
+        const start = new Date(occ);
+
+        start.setHours(
+          e.start.getHours(),
+          e.start.getMinutes(),
+          e.start.getSeconds(),
+          0
+        );
+
         const end = new Date(start.getTime() + duration);
 
-        /* ===== EXDATE ===== */
-
+        // EXDATE
         if (e.exdate) {
-
           const ex = Object.values(e.exdate).map(d => {
-
             const exDate = new Date(d);
-            exDate.setTime(exDate.getTime() + offset);
+
+            exDate.setHours(
+              e.start.getHours(),
+              e.start.getMinutes(),
+              e.start.getSeconds(),
+              0
+            );
 
             return exDate.getTime();
           });
@@ -244,20 +214,14 @@ for (const k in data) {
           if (ex.includes(start.getTime())) continue;
         }
 
-        instance = {
-          ...e,
-          start,
-          end
-        };
+        instance = { ...e, start, end };
       }
 
       if (instance.summary?.includes("¤")) continue;
 
-      const key = eventKey(instance);
+      const key = `${instance.uid}_${instance.start.getTime()}`;
 
-      if (!eventsMap.has(key) ||
-          instance.sequence > (eventsMap.get(key).sequence || 0)) {
-
+      if (!eventsMap.has(key)) {
         eventsMap.set(key, {
           summary: instance.summary,
           start: instance.start,
@@ -265,11 +229,8 @@ for (const k in data) {
           isAllDay: instance.datetype === "date",
           status
         });
-
       }
-
     }
-
   }
 
   /* ===== normaalit ===== */
@@ -280,11 +241,9 @@ for (const k in data) {
 
       if (e.summary?.includes("¤")) continue;
 
-      const key = eventKey(e);
+      const key = `${e.uid}_${e.start.getTime()}`;
 
-      if (!eventsMap.has(key) ||
-          e.sequence > (eventsMap.get(key)?.sequence || 0)) {
-
+      if (!eventsMap.has(key)) {
         eventsMap.set(key, {
           summary: e.summary,
           start: e.start,
@@ -292,19 +251,14 @@ for (const k in data) {
           isAllDay: e.datetype === "date",
           status
         });
-
       }
-
     }
-
   }
-
 }
 
 /* ===== array ===== */
 
 let events = Array.from(eventsMap.values());
-
 events.sort((a,b) => a.start - b.start);
 
 const allDayEvents = events.filter(e => e.isAllDay);
