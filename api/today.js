@@ -229,6 +229,7 @@ for (const k in data) {
 
         const t = getHelsinkiTimeParts(e.start);
 
+        // 🔥 käytä occ UTC timestampia suoraan pohjana
         const start = new Date(
           occ.getFullYear(),
           occ.getMonth(),
