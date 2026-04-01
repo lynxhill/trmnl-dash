@@ -92,6 +92,7 @@ module.exports = async function handler(req, res) {
 
 
 /* ================= CALENDAR ================= */
+/* ================= CALENDAR ================= */
 
 const icsRes = await fetch(ICS_URL);
 const icsText = await icsRes.text();
@@ -113,9 +114,6 @@ todayStart.setHours(0,0,0,0);
 const todayEnd = new Date(today);
 todayEnd.setHours(23,59,59,999);
 
-const startHour = 8;
-const endHour = 17;
-  
 /* ===== header ===== */
 
 const weekdays = [
@@ -131,12 +129,15 @@ const header =
   (today.getMonth()+1) +
   ".";
 
-/* ===== helperit ===== */
-
-// 🔥 hakee kellonajan aina Helsinki-ajassa oikein
+/* ===== helper: hae kellonaika Helsingissä ===== */
+/*
+  Tämä on KRIITTINEN:
+  - toimii sekä UTC että "floating" Outlook eventeille
+  - huomioi kesäajan automaattisesti
+*/
 const getHelsinkiTimeParts = (date) => {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Helsinki",
+    timeZone: helsinkiTZ,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -203,6 +204,8 @@ for (const k in data) {
 
       let instance;
 
+      /* ===== override handling ===== */
+
       if (overrides[occTime]) {
 
         instance = overrides[occTime];
@@ -211,22 +214,25 @@ for (const k in data) {
 
         const duration = e.end - e.start;
 
-        // 🔥 kellonaika oikein Helsingin ajassa
+        /* 
+          🔥 KRIITTINEN LOGIIKKA
+
+          occ → antaa oikean päivän
+          e.start → antaa oikean kellonajan
+
+          YHDISTETÄÄN:
+          päivä (occ) + kellonaika (Helsinki)
+        */
+
         const t = getHelsinkiTimeParts(e.start);
 
-        // 🔥 rakennetaan "local wall time"
-        const local = new Date(
+        const start = new Date(
           occ.getUTCFullYear(),
           occ.getUTCMonth(),
           occ.getUTCDate(),
           t.hour,
           t.minute,
           t.second
-        );
-
-        // 🔥 korjataan UTC-offset pois (Vercel fix)
-        const start = new Date(
-          local.getTime() - (new Date().getTimezoneOffset() * 60000)
         );
 
         const end = new Date(start.getTime() + duration);
@@ -239,17 +245,13 @@ for (const k in data) {
 
             const dDate = new Date(d);
 
-            const exLocal = new Date(
+            const exDate = new Date(
               dDate.getUTCFullYear(),
               dDate.getUTCMonth(),
               dDate.getUTCDate(),
               t.hour,
               t.minute,
               t.second
-            );
-
-            const exDate = new Date(
-              exLocal.getTime() - (new Date().getTimezoneOffset() * 60000)
             );
 
             return exDate.getTime();
@@ -324,6 +326,9 @@ events.sort((a,b) => a.start - b.start);
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
 
+
+
+  
 /* ===== render timed events ===== */
 
 const pixelsPerHour = 40;
