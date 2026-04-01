@@ -189,97 +189,97 @@ for (const k in data) {
 
   if (e.transparency === "TRANSPARENT") status = "free";
 
-  /* ===== recurring ===== */
 
-  if (e.rrule) {
+  
+/* ===== recurring ===== */
 
-    e.rrule.options.tzid = helsinkiTZ;
+if (e.rrule) {
 
-    // 🔴 tärkeä: käytä alkuperäistä starttia
-    const rangeStart = new Date(todayStart);
-    const rangeEnd = new Date(todayEnd);
+  e.rrule.options.tzid = helsinkiTZ;
 
-    const occurrences = e.rrule.between(rangeStart, rangeEnd, true);
+  const rangeStart = new Date(todayStart);
+  const rangeEnd = new Date(todayEnd);
 
-    for (const occ of occurrences) {
+  const occurrences = e.rrule.between(rangeStart, rangeEnd, true);
 
-      const occTime = occ.getTime();
+  for (const occ of occurrences) {
 
-      let instance;
+    const occTime = occ.getTime();
 
-      if (overrides[occTime]) {
+    let instance;
 
-        instance = overrides[occTime];
+    if (overrides[occTime]) {
 
-      } else {
+      instance = overrides[occTime];
 
-        const duration = e.end - e.start;
+    } else {
 
-        // ✅ 1. LUO START ENSIN
-        const t = getHelsinkiTimeParts(e.start);
+      const duration = e.end - e.start;
 
-        const start = new Date(Date.UTC(
-            occ.getUTCFullYear(),
-            occ.getUTCMonth(),
-            occ.getUTCDate(),
+      // ✅ 1. ota kellonaika oikein (Helsinki)
+      const t = getHelsinkiTimeParts(e.start);
+
+      // ✅ 2. rakenna occurrence start oikein UTC:na
+      const start = new Date(Date.UTC(
+        occ.getUTCFullYear(),
+        occ.getUTCMonth(),
+        occ.getUTCDate(),
+        t.hour,
+        t.minute,
+        t.second
+      ));
+
+      const end = new Date(start.getTime() + duration);
+
+      // ✅ 3. EXDATE tarkistus (korjattu)
+      if (e.exdate) {
+
+        const ex = Object.values(e.exdate).map(d => {
+
+          const dDate = new Date(d);
+
+          const exDate = new Date(Date.UTC(
+            dDate.getUTCFullYear(),
+            dDate.getUTCMonth(),
+            dDate.getUTCDate(),
             t.hour,
             t.minute,
             t.second
-        ));
+          ));
 
-        const end = new Date(start.getTime() + duration);
-
-        // ✅ 2. TEE EXDATE TARKISTUS TÄSSÄ
-        if (e.exdate) {
-          const ex = Object.values(e.exdate).map(d => {
-            const exDate = new Date(Date.UTC(
-              new Date(d).getUTCFullYear(),
-              new Date(d).getUTCMonth(),
-              new Date(d).getUTCDate(),
-              const t = getHelsinkiTimeParts(e.start);
-
-              const start = new Date(Date.UTC(
-                occ.getUTCFullYear(),
-                occ.getUTCMonth(),
-                occ.getUTCDate(),
-                t.hour,
-                t.minute,
-                t.second
-              ));
-            ));
-            return exDate.getTime();
-          });
-    
-          if (ex.includes(start.getTime())) continue;
-        }
-  
-        instance = {
-          ...e,
-          start,
-          end
-        };
-      }
-
-      if (instance.summary?.includes("¤")) continue;
-
-      const key = eventKey(instance);
-
-      if (!eventsMap.has(key) ||
-          instance.sequence > (eventsMap.get(key).sequence || 0)) {
-
-        eventsMap.set(key, {
-          summary: instance.summary,
-          start: instance.start,
-          end: instance.end,
-          isAllDay: instance.datetype === "date",
-          status
+          return exDate.getTime();
         });
 
+        if (ex.includes(start.getTime())) continue;
       }
+
+      instance = {
+        ...e,
+        start,
+        end
+      };
+    }
+
+    if (instance.summary?.includes("¤")) continue;
+
+    const key = eventKey(instance);
+
+    if (!eventsMap.has(key) ||
+        instance.sequence > (eventsMap.get(key).sequence || 0)) {
+
+      eventsMap.set(key, {
+        summary: instance.summary,
+        start: instance.start,
+        end: instance.end,
+        isAllDay: instance.datetype === "date",
+        status
+      });
 
     }
 
   }
+
+}
 
   /* ===== normaalit ===== */
 
