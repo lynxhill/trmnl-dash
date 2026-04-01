@@ -92,6 +92,7 @@ module.exports = async function handler(req, res) {
 
 
 /* ================= CALENDAR ================= */
+
 /* ================= CALENDAR ================= */
 
 const icsRes = await fetch(ICS_URL);
@@ -116,7 +117,7 @@ todayEnd.setHours(23,59,59,999);
 
 const startHour = 8;
 const endHour = 17;
-  
+
 /* ===== header ===== */
 
 const weekdays = [
@@ -132,27 +133,7 @@ const header =
   (today.getMonth()+1) +
   ".";
 
-/* ===== helper: hae kellonaika Helsingissä ===== */
-/*
-  Tämä on KRIITTINEN:
-  - toimii sekä UTC että "floating" Outlook eventeille
-  - huomioi kesäajan automaattisesti
-*/
-const getHelsinkiTimeParts = (date) => {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: helsinkiTZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  }).formatToParts(date);
-
-  return {
-    hour: Number(parts.find(p => p.type === "hour").value),
-    minute: Number(parts.find(p => p.type === "minute").value),
-    second: Number(parts.find(p => p.type === "second").value)
-  };
-};
+/* ===== helper ===== */
 
 const eventKey = (e) =>
   `${e.uid}_${e.start.getTime()}`;
@@ -199,7 +180,7 @@ for (const k in data) {
 
     e.rrule.options.tzid = helsinkiTZ;
 
-    // 🔥 tee range UTC:ssa
+    // 🔥 käytä UTC-rangea (rrule toimii UTC:ssa)
     const rangeStartUTC = new Date(Date.UTC(
       today.getFullYear(),
       today.getMonth(),
@@ -215,14 +196,26 @@ for (const k in data) {
     ));
 
     const occurrences = e.rrule.between(rangeStartUTC, rangeEndUTC, true);
-    
+
+    /* 🔥 ratkaiseva offset (Outlookin oikea aika) */
+    const offset =
+      e.start.getTime() -
+      new Date(
+        e.start.getUTCFullYear(),
+        e.start.getUTCMonth(),
+        e.start.getUTCDate(),
+        e.start.getUTCHours(),
+        e.start.getUTCMinutes(),
+        e.start.getUTCSeconds()
+      ).getTime();
+
     for (const occ of occurrences) {
 
       const occTime = occ.getTime();
 
       let instance;
 
-      /* ===== override handling ===== */
+      /* ===== override ===== */
 
       if (overrides[occTime]) {
 
@@ -232,28 +225,8 @@ for (const k in data) {
 
         const duration = e.end - e.start;
 
-        /* 
-          🔥 KRIITTINEN LOGIIKKA
-
-          occ → antaa oikean päivän
-          e.start → antaa oikean kellonajan
-
-          YHDISTETÄÄN:
-          päivä (occ) + kellonaika (Helsinki)
-        */
-
-        const t = getHelsinkiTimeParts(e.start);
-
-        // 🔥 käytä occ UTC timestampia suoraan pohjana
-        const start = new Date(
-          occ.getFullYear(),
-          occ.getMonth(),
-          occ.getDate(),
-          t.hour,
-          t.minute,
-          t.second
-        );
-
+        /* 🔥 käytä occurrence + offset */
+        const start = new Date(occ.getTime() + offset);
         const end = new Date(start.getTime() + duration);
 
         /* ===== EXDATE ===== */
@@ -262,16 +235,8 @@ for (const k in data) {
 
           const ex = Object.values(e.exdate).map(d => {
 
-            const dDate = new Date(d);
-
-            const exDate = new Date(
-              dDate.getFullYear(),
-              dDate.getMonth(),
-              dDate.getDate(),
-              t.hour,
-              t.minute,
-              t.second
-            );
+            const exDate = new Date(d);
+            exDate.setTime(exDate.getTime() + offset);
 
             return exDate.getTime();
           });
@@ -344,8 +309,6 @@ events.sort((a,b) => a.start - b.start);
 
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
-
-
 
   
 /* ===== render timed events ===== */
