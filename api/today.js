@@ -128,14 +128,15 @@ const header =
   (now.getMonth()+1) +
   ".";
 
-/* ===== apufunktio ===== */
+/* ===== helperit ===== */
 
-// tarkistaa osuuko event päivälle (myös yli yön menevät)
-const isSameDay = (start, end) => {
-  return (
-    (start <= todayEnd && end >= todayStart)
-  );
-};
+// tarkistaa osuuko päivälle (myös yli yön eventit)
+const isToday = (start, end) =>
+  start <= todayEnd && end >= todayStart;
+
+// eventin uniikki key
+const getKey = (uid, start) =>
+  `${uid}_${start.getTime()}`;
 
 /* ===== override map ===== */
 
@@ -152,12 +153,13 @@ for (const k in data) {
 
 /* ===== eventit ===== */
 
-const events = [];
+const eventsMap = new Map();
 
 for (const k in data) {
 
   const e = data[k];
   if (e.type !== "VEVENT") continue;
+  if (e.recurrenceid) continue;
 
   let status = "busy";
 
@@ -174,71 +176,88 @@ for (const k in data) {
 
   /* ===== RECURRING ===== */
 
-if (e.rrule) {
+  if (e.rrule) {
 
-  const occurrences = e.rrule.between(todayStart, todayEnd, true);
+    const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
-  for (const occ of occurrences) {
+    for (const occ of occurrences) {
 
-    const duration = e.end - e.start;
+      const duration = e.end - e.start;
 
-    // 🔥 1. korjaa occ → Helsinki aikaan
-    const start = new Date(
-      occ.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
-    );
+      // 🔥 tärkein logiikka:
+      // occ = päivä
+      // e.start = kellonaika
+      const start = new Date(occ);
 
-    // 🔥 2. aseta oikea kellonaika alkuperäisestä eventistä
-    start.setHours(
-      e.start.getHours(),
-      e.start.getMinutes(),
-      e.start.getSeconds(),
-      0
-    );
-
-    const end = new Date(start.getTime() + duration);
-
-    // EXDATE
-    if (e.exdate) {
-      const ex = Object.values(e.exdate).map(d =>
-        new Date(
-          new Date(d).toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
-        ).getTime()
+      start.setHours(
+        e.start.getHours(),
+        e.start.getMinutes(),
+        e.start.getSeconds(),
+        0
       );
 
-      if (ex.includes(start.getTime())) continue;
+      const end = new Date(start.getTime() + duration);
+
+      const occKey = occ.getTime();
+
+      // override (RECURRENCE-ID)
+      let instance = overrides.get(occKey) || {
+        ...e,
+        start,
+        end
+      };
+
+      // EXDATE
+      if (e.exdate) {
+        const ex = Object.values(e.exdate).map(d =>
+          new Date(d).getTime()
+        );
+
+        if (ex.includes(occKey)) continue;
+      }
+
+      if (!isToday(instance.start, instance.end)) continue;
+      if (instance.summary?.includes("¤")) continue;
+
+      const key = getKey(instance.uid, instance.start);
+
+      if (!eventsMap.has(key)) {
+        eventsMap.set(key, {
+          summary: instance.summary,
+          start: instance.start,
+          end: instance.end,
+          isAllDay: instance.datetype === "date",
+          status
+        });
+      }
     }
-
-    if (e.summary?.includes("¤")) continue;
-
-    events.push({
-      summary: e.summary,
-      start,
-      end,
-      isAllDay: e.datetype === "date",
-      status
-    });
   }
-}
+
   /* ===== NORMAALI ===== */
 
-  else if (!e.rrule && !e.recurrenceid) {
+  else {
 
-    if (!isSameDay(e.start, e.end)) continue;
+    if (!isToday(e.start, e.end)) continue;
     if (e.summary?.includes("¤")) continue;
 
-    events.push({
-      summary: e.summary,
-      start: e.start,
-      end: e.end,
-      isAllDay: e.datetype === "date",
-      status
-    });
+    const key = getKey(e.uid, e.start);
+
+    if (!eventsMap.has(key)) {
+      eventsMap.set(key, {
+        summary: e.summary,
+        start: e.start,
+        end: e.end,
+        isAllDay: e.datetype === "date",
+        status
+      });
+    }
   }
 }
 
-/* ===== järjestys ===== */
+/* ===== array ===== */
 
-events.sort((a,b) => a.start - b.start);
+const events = Array.from(eventsMap.values())
+  .sort((a,b) => a.start - b.start);
 
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
