@@ -174,54 +174,51 @@ for (const k in data) {
 
   /* ===== RECURRING ===== */
 
-  if (e.rrule && !e.recurrenceid) {
+if (e.rrule) {
 
-    // 🔥 node-ical tekee tämän oikein (TZID + DST)
-    const occurrences = e.rrule.between(todayStart, todayEnd, true);
+  const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
-    for (const occ of occurrences) {
+  for (const occ of occurrences) {
 
-      const originalStart = new Date(e.start);
-      const originalEnd = new Date(e.end);
+    const duration = e.end - e.start;
 
-      const duration = originalEnd - originalStart;
+    // 🔥 1. korjaa occ → Helsinki aikaan
+    const start = new Date(
+      occ.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+    );
 
-      // 🔥 tämä on koko homman ydin:
-      // käytetään occurrencea sellaisenaan
-      const start = new Date(occ);
-      const end = new Date(start.getTime() + duration);
+    // 🔥 2. aseta oikea kellonaika alkuperäisestä eventistä
+    start.setHours(
+      e.start.getHours(),
+      e.start.getMinutes(),
+      e.start.getSeconds(),
+      0
+    );
 
-      const key = occ.getTime();
+    const end = new Date(start.getTime() + duration);
 
-      // override?
-      let finalEvent = overrides.get(key) || {
-        ...e,
-        start,
-        end
-      };
+    // EXDATE
+    if (e.exdate) {
+      const ex = Object.values(e.exdate).map(d =>
+        new Date(
+          new Date(d).toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+        ).getTime()
+      );
 
-      // EXDATE
-      if (e.exdate) {
-        const exdates = Object.values(e.exdate).map(d =>
-          new Date(d).getTime()
-        );
-
-        if (exdates.includes(key)) continue;
-      }
-
-      if (!isSameDay(finalEvent.start, finalEvent.end)) continue;
-      if (finalEvent.summary?.includes("¤")) continue;
-
-      events.push({
-        summary: finalEvent.summary,
-        start: finalEvent.start,
-        end: finalEvent.end,
-        isAllDay: finalEvent.datetype === "date",
-        status
-      });
+      if (ex.includes(start.getTime())) continue;
     }
-  }
 
+    if (e.summary?.includes("¤")) continue;
+
+    events.push({
+      summary: e.summary,
+      start,
+      end,
+      isAllDay: e.datetype === "date",
+      status
+    });
+  }
+}
   /* ===== NORMAALI ===== */
 
   else if (!e.rrule && !e.recurrenceid) {
