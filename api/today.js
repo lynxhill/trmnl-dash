@@ -230,9 +230,9 @@ for (const k in data) {
         const t = getHelsinkiTimeParts(e.start);
 
         const start = new Date(
-          occ.getUTCFullYear(),
-          occ.getUTCMonth(),
-          occ.getUTCDate(),
+          occ.getFullYear(),
+          occ.getMonth(),
+          occ.getDate(),
           t.hour,
           t.minute,
           t.second
@@ -249,9 +249,9 @@ for (const k in data) {
             const dDate = new Date(d);
 
             const exDate = new Date(
-              dDate.getUTCFullYear(),
-              dDate.getUTCMonth(),
-              dDate.getUTCDate(),
+              dDate.getFullYear(),
+              dDate.getMonth(),
+              dDate.getDate(),
               t.hour,
               t.minute,
               t.second
