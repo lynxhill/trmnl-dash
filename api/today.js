@@ -114,6 +114,9 @@ todayStart.setHours(0,0,0,0);
 const todayEnd = new Date(today);
 todayEnd.setHours(23,59,59,999);
 
+const startHour = 8;
+const endHour = 17;
+  
 /* ===== header ===== */
 
 const weekdays = [
