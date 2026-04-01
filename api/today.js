@@ -188,45 +188,45 @@ for (const k in data) {
 
       const occTime = occ.getTime();
 
-      if (e.exdate) {
-        const ex = Object.values(e.exdate).map(d => {
-          const exDate = new Date(d);
-          exDate.setHours(
-            e.start.getHours(),
-            e.start.getMinutes(),
-            e.start.getSeconds(),
-            0
-          );
-          return exDate.getTime();
-        });
-
-        if (ex.includes(start.getTime())) continue;
-      }
-
       let instance;
 
       if (overrides[occTime]) {
+
         instance = overrides[occTime];
+
       } else {
 
-
         const duration = e.end - e.start;
 
-        // 🔥 kriittinen: käytä occurrence + alkuperäinen kellonaika
-        const duration = e.end - e.start;
-
-        // 🔥 rakenna UTC-aika käyttäen alkuperäistä kellonaikaa
+        // ✅ 1. LUO START ENSIN
         const start = new Date(Date.UTC(
           occ.getUTCFullYear(),
           occ.getUTCMonth(),
           occ.getUTCDate(),
-          e.start.getHours(),
-          e.start.getMinutes(),
-          e.start.getSeconds()
+          e.start.getUTCHours(),
+          e.start.getUTCMinutes(),
+          e.start.getUTCSeconds()
         ));
 
         const end = new Date(start.getTime() + duration);
 
+        // ✅ 2. TEE EXDATE TARKISTUS TÄSSÄ
+        if (e.exdate) {
+          const ex = Object.values(e.exdate).map(d => {
+            const exDate = new Date(Date.UTC(
+              new Date(d).getUTCFullYear(),
+              new Date(d).getUTCMonth(),
+              new Date(d).getUTCDate(),
+              e.start.getUTCHours(),
+              e.start.getUTCMinutes(),
+              e.start.getUTCSeconds()
+            ));
+            return exDate.getTime();
+          });
+    
+          if (ex.includes(start.getTime())) continue;
+        }
+  
         instance = {
           ...e,
           start,
@@ -238,7 +238,6 @@ for (const k in data) {
 
       const key = eventKey(instance);
 
-      // 🔴 deduplikointi: valitaan "paras"
       if (!eventsMap.has(key) ||
           instance.sequence > (eventsMap.get(key).sequence || 0)) {
 
