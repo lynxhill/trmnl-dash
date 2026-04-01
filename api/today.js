@@ -213,16 +213,19 @@ for (const k in data) {
         const duration = e.end - e.start;
 
         // 🔥 kriittinen: käytä occurrence + alkuperäinen kellonaika
-        const start = new Date(occ);
+        const duration = e.end - e.start;
 
-        start.setHours(
+        // 🔥 rakenna UTC-aika käyttäen alkuperäistä kellonaikaa
+        const start = new Date(Date.UTC(
+          occ.getUTCFullYear(),
+          occ.getUTCMonth(),
+          occ.getUTCDate(),
           e.start.getHours(),
           e.start.getMinutes(),
-          e.start.getSeconds(),
-          0
-        );
+          e.start.getSeconds()
+        ));
 
-const end = new Date(start.getTime() + duration);
+        const end = new Date(start.getTime() + duration);
 
         instance = {
           ...e,
