@@ -199,8 +199,23 @@ for (const k in data) {
 
     e.rrule.options.tzid = helsinkiTZ;
 
-    const occurrences = e.rrule.between(todayStart, todayEnd, true);
+    // 🔥 tee range UTC:ssa
+    const rangeStartUTC = new Date(Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0,0,0
+    ));
 
+    const rangeEndUTC = new Date(Date.UTC(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,59,59
+    ));
+
+    const occurrences = e.rrule.between(rangeStartUTC, rangeEndUTC, true);
+    
     for (const occ of occurrences) {
 
       const occTime = occ.getTime();
