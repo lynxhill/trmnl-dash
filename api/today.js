@@ -128,27 +128,36 @@ const header =
   (now.getMonth()+1) +
   ".";
 
+/* ===== apufunktio ===== */
+
+// tarkistaa osuuko event päivälle (myös yli yön menevät)
+const isSameDay = (start, end) => {
+  return (
+    (start <= todayEnd && end >= todayStart)
+  );
+};
+
 /* ===== override map ===== */
 
-let overrides = {};
-let eventsMap = new Map();
+const overrides = new Map();
 
 for (const k in data) {
   const e = data[k];
   if (e.type !== "VEVENT") continue;
 
   if (e.recurrenceid) {
-    overrides[new Date(e.recurrenceid).getTime()] = e;
+    overrides.set(new Date(e.recurrenceid).getTime(), e);
   }
 }
 
-/* ===== tapahtumat ===== */
+/* ===== eventit ===== */
+
+const events = [];
 
 for (const k in data) {
 
   const e = data[k];
   if (e.type !== "VEVENT") continue;
-  if (e.recurrenceid) continue;
 
   let status = "busy";
 
@@ -163,107 +172,81 @@ for (const k in data) {
 
   if (e.transparency === "TRANSPARENT") status = "free";
 
-  /* ===== recurring ===== */
+  /* ===== RECURRING ===== */
 
-  if (e.rrule) {
+  if (e.rrule && !e.recurrenceid) {
 
+    // 🔥 node-ical tekee tämän oikein (TZID + DST)
     const occurrences = e.rrule.between(todayStart, todayEnd, true);
 
     for (const occ of occurrences) {
 
-      const occTime = occ.getTime();
+      const originalStart = new Date(e.start);
+      const originalEnd = new Date(e.end);
 
-      let instance;
+      const duration = originalEnd - originalStart;
 
-      if (overrides[occTime]) {
+      // 🔥 tämä on koko homman ydin:
+      // käytetään occurrencea sellaisenaan
+      const start = new Date(occ);
+      const end = new Date(start.getTime() + duration);
 
-        instance = overrides[occTime];
+      const key = occ.getTime();
 
-      } else {
+      // override?
+      let finalEvent = overrides.get(key) || {
+        ...e,
+        start,
+        end
+      };
 
-        const duration = e.end - e.start;
-
-        // 🔥 yksinkertainen ja toimiva:
-        // käytä occurrence päivää + alkuperäisen eventin kellonaikaa
-        const start = new Date(occ);
-
-        start.setHours(
-          e.start.getHours(),
-          e.start.getMinutes(),
-          e.start.getSeconds(),
-          0
+      // EXDATE
+      if (e.exdate) {
+        const exdates = Object.values(e.exdate).map(d =>
+          new Date(d).getTime()
         );
 
-        const end = new Date(start.getTime() + duration);
-
-        // EXDATE
-        if (e.exdate) {
-          const ex = Object.values(e.exdate).map(d => {
-            const exDate = new Date(d);
-
-            exDate.setHours(
-              e.start.getHours(),
-              e.start.getMinutes(),
-              e.start.getSeconds(),
-              0
-            );
-
-            return exDate.getTime();
-          });
-
-          if (ex.includes(start.getTime())) continue;
-        }
-
-        instance = { ...e, start, end };
+        if (exdates.includes(key)) continue;
       }
 
-      if (instance.summary?.includes("¤")) continue;
+      if (!isSameDay(finalEvent.start, finalEvent.end)) continue;
+      if (finalEvent.summary?.includes("¤")) continue;
 
-      const key = `${instance.uid}_${instance.start.getTime()}`;
-
-      if (!eventsMap.has(key)) {
-        eventsMap.set(key, {
-          summary: instance.summary,
-          start: instance.start,
-          end: instance.end,
-          isAllDay: instance.datetype === "date",
-          status
-        });
-      }
+      events.push({
+        summary: finalEvent.summary,
+        start: finalEvent.start,
+        end: finalEvent.end,
+        isAllDay: finalEvent.datetype === "date",
+        status
+      });
     }
   }
 
-  /* ===== normaalit ===== */
+  /* ===== NORMAALI ===== */
 
-  else {
+  else if (!e.rrule && !e.recurrenceid) {
 
-    if (e.start >= todayStart && e.start <= todayEnd) {
+    if (!isSameDay(e.start, e.end)) continue;
+    if (e.summary?.includes("¤")) continue;
 
-      if (e.summary?.includes("¤")) continue;
-
-      const key = `${e.uid}_${e.start.getTime()}`;
-
-      if (!eventsMap.has(key)) {
-        eventsMap.set(key, {
-          summary: e.summary,
-          start: e.start,
-          end: e.end,
-          isAllDay: e.datetype === "date",
-          status
-        });
-      }
-    }
+    events.push({
+      summary: e.summary,
+      start: e.start,
+      end: e.end,
+      isAllDay: e.datetype === "date",
+      status
+    });
   }
 }
 
-/* ===== array ===== */
+/* ===== järjestys ===== */
 
-let events = Array.from(eventsMap.values());
 events.sort((a,b) => a.start - b.start);
 
 const allDayEvents = events.filter(e => e.isAllDay);
 const timedEvents = events.filter(e => !e.isAllDay);
 
+  
   
 /* ===== render timed events ===== */
 
