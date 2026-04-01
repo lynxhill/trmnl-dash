@@ -216,13 +216,9 @@ for (const k in data) {
         const duration = e.end - e.start;
 
         // ✅ 1. LUO START ENSIN
-        const start = new Date(Date.UTC(
-          occ.getUTCFullYear(),
-          occ.getUTCMonth(),
-          occ.getUTCDate(),
-          const t = getHelsinkiTimeParts(e.start);
+        const t = getHelsinkiTimeParts(e.start);
 
-          const start = new Date(Date.UTC(
+        const start = new Date(Date.UTC(
             occ.getUTCFullYear(),
             occ.getUTCMonth(),
             occ.getUTCDate(),
