@@ -47,26 +47,32 @@ module.exports = async function handler(req, res) {
       hourCycle: "h23"
     });
 
-    // Palauttaa päivämäärän ja kellonajan Suomen ajassa.
-    function localParts(date) {
-      const parts = formatter.formatToParts(date);
-      const result = {};
+// Palauttaa päivämäärän ja kellonajan Suomen ajassa.
+function localParts(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new Error(
+      `localParts sai virheellisen päivämäärän: ${date}`
+    );
+  }
 
-      for (const part of parts) {
-        if (part.type !== "literal") {
-          result[part.type] = Number(part.value);
-        }
-      }
+  const parts = formatter.formatToParts(date);
+  const result = {};
 
-      return {
-        year: result.year,
-        month: result.month,
-        day: result.day,
-        hour: result.hour,
-        minute: result.minute,
-        second: result.second
-      };
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      result[part.type] = Number(part.value);
     }
+  }
+
+  return {
+    year: result.year,
+    month: result.month,
+    day: result.day,
+    hour: result.hour,
+    minute: result.minute,
+    second: result.second
+  };
+}
 
     // Muodostaa Suomen paikallisen päivämäärän avaimen.
     function dateKey(date) {
