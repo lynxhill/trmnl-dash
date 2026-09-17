@@ -438,104 +438,133 @@ function addDays(date, days) {
        alkuperäisen tapahtuman päivämäärän tai viikonpäivän.
        ========================================================= */
 
-    function expandRecurring(event, status) {
-      const results = [];
 
-      if (
-        !event.rrule ||
-        !(event.start instanceof Date) ||
-        !(event.end instanceof Date)
-      ) {
-        return results;
-      }
+function expandRecurring(event, status) {
+  const results = [];
 
-      const duration = getDuration(event);
+  if (
+    !event.rrule ||
+    !(event.start instanceof Date) ||
+    !(event.end instanceof Date)
+  ) {
+    return results;
+  }
 
-      if (duration <= 0) {
-        return results;
-      }
+  const startParts = localParts(event.start);
+  const endParts = localParts(event.end);
 
-      const exdateKeys = getExdateKeys(event);
+  // Alkuperäisen tapahtuman kellonajat Suomen ajassa.
+  const startMinutes =
+    startParts.hour * 60 + startParts.minute;
 
-      let occurrences = [];
+  const endMinutes =
+    endParts.hour * 60 + endParts.minute;
 
-      try {
-        // node-ical käyttää rrule-oliota esiintymien hakuun.
-        // Älä muuta alkuperäistä DTSTART-oliota.
-        occurrences = event.rrule.between(
-          recurrenceSearchStart,
-          recurrenceSearchEnd,
-          true
-        );
-      } catch (error) {
-        console.error(
-          "RRULE-laajennus epäonnistui:",
-          event.summary,
-          error
-        );
+  // Tapahtuman paikallinen kesto.
+  let durationMinutes = endMinutes - startMinutes;
 
-        return results;
-      }
+  // Yön yli jatkuvat tapahtumat.
+  if (durationMinutes <= 0) {
+    durationMinutes += 24 * 60;
+  }
 
-      for (const occurrence of occurrences) {
-        if (!(occurrence instanceof Date)) continue;
+  if (durationMinutes <= 0) {
+    return results;
+  }
 
-        const occurrenceKey = dateTimeKey(occurrence);
+  const exdateKeys = getExdateKeys(event);
 
-        // Jos toistokerta on poistettu EXDATE-listasta,
-        // sitä ei lisätä kalenteriin.
-        if (exdateKeys.has(occurrenceKey)) {
-          continue;
-        }
+  let occurrences = [];
 
-        // Jos yksittäinen esiintymä on muutettu,
-        // käytetään poikkeustapahtumaa.
-        const override = overrides.get(occurrenceKey);
+  try {
+    occurrences = event.rrule.between(
+      recurrenceSearchStart,
+      recurrenceSearchEnd,
+      true
+    );
+  } catch (error) {
+    console.error(
+      "RRULE-laajennus epäonnistui:",
+      event.summary,
+      error
+    );
 
-        if (override) {
-          // CANCELLED-poikkeus tarkoittaa poistettua esiintymää.
-          if (
-            String(override.status || "").toUpperCase() ===
-            "CANCELLED"
-          ) {
-            continue;
-          }
+    return results;
+  }
 
-          const overrideStatus = getStatus(override);
+  for (const occurrence of occurrences) {
+    if (!(occurrence instanceof Date)) continue;
 
-          const overrideEvent = makeEvent(
-            override,
-            override.start,
-            override.end,
-            overrideStatus
-          );
+    /*
+     * Käytetään toistokerran päivämäärää,
+     * mutta alkuperäisen tapahtuman Suomen kellonaikaa.
+     */
+    const occurrenceParts = localParts(occurrence);
 
-          if (overrideEvent) {
-            results.push(overrideEvent);
-          }
+    const occurrenceStart = fromLocal(
+      occurrenceParts.year,
+      occurrenceParts.month,
+      occurrenceParts.day,
+      startParts.hour,
+      startParts.minute
+    );
 
-          continue;
-        }
+    const occurrenceEnd = fromLocal(
+      occurrenceParts.year,
+      occurrenceParts.month,
+      occurrenceParts.day,
+      startParts.hour,
+      startParts.minute + durationMinutes
+    );
 
-        // Tavallinen toistuva esiintymä.
-        const occurrenceEnd = new Date(
-          occurrence.getTime() + duration
-        );
+    const occurrenceKey = dateTimeKey(occurrenceStart);
 
-        const generated = makeEvent(
-          event,
-          occurrence,
-          occurrenceEnd,
-          status
-        );
-
-        if (generated) {
-          results.push(generated);
-        }
-      }
-
-      return results;
+    // EXDATE-poistot.
+    if (exdateKeys.has(occurrenceKey)) {
+      continue;
     }
+
+    // Yksittäisen toistokerran muutos.
+    const override = overrides.get(
+      dateTimeKey(occurrence)
+    );
+
+    if (override) {
+      if (
+        String(override.status || "").toUpperCase() ===
+        "CANCELLED"
+      ) {
+        continue;
+      }
+
+      const overrideEvent = makeEvent(
+        override,
+        override.start,
+        override.end,
+        getStatus(override)
+      );
+
+      if (overrideEvent) {
+        results.push(overrideEvent);
+      }
+
+      continue;
+    }
+
+    const generated = makeEvent(
+      event,
+      occurrenceStart,
+      occurrenceEnd,
+      status
+    );
+
+    if (generated) {
+      results.push(generated);
+    }
+  }
+
+  return results;
+}
 
     /* =========================================================
        10. KOKO KALENTERIN PARSINTA
