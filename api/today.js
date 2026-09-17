@@ -138,21 +138,36 @@ function localParts(date) {
       return new Date(guess);
     }
 
-    // Lisää päiviä kalenteripäivinä, ei 24 tunnin jaksoina.
-    function addDays(date, days) {
-      const p = localParts(date);
+// Lisää päiviä kalenteripäivinä, ei 24 tunnin jaksoina.
+// Hyväksyy sekä Date-olion että { year, month, day } -objektin.
+function addDays(date, days) {
+  let p;
 
-      const temp = new Date(
-        Date.UTC(p.year, p.month - 1, p.day + days)
-      );
+  if (date instanceof Date) {
+    p = localParts(date);
+  } else if (
+    date &&
+    Number.isInteger(date.year) &&
+    Number.isInteger(date.month) &&
+    Number.isInteger(date.day)
+  ) {
+    p = date;
+  } else {
+    throw new Error(
+      `addDays sai virheellisen päivämäärän: ${JSON.stringify(date)}`
+    );
+  }
 
-      return {
-        year: temp.getUTCFullYear(),
-        month: temp.getUTCMonth() + 1,
-        day: temp.getUTCDate()
-      };
-    }
+  const temp = new Date(
+    Date.UTC(p.year, p.month - 1, p.day + days)
+  );
 
+  return {
+    year: temp.getUTCFullYear(),
+    month: temp.getUTCMonth() + 1,
+    day: temp.getUTCDate()
+  };
+}
     // Viikonpäivä Suomen paikallisesta päivämäärästä.
     // 0 = sunnuntai, 1 = maanantai, ... 6 = lauantai.
     function weekday(date) {
