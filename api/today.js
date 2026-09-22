@@ -524,10 +524,10 @@ function expandRecurring(event, status) {
       continue;
     }
 
-    // Yksittäisen toistokerran muutos.
-    const override = overrides.get(
-      dateTimeKey(occurrence)
-    );
+// Yksittäisen toistokerran muutos.
+// Käytetään samaa paikallista avainta kuin esiintymän
+// muodostuksessa ja EXDATE-tarkistuksessa.
+    const override = overrides.get(occurrenceKey);
 
     if (override) {
       if (
