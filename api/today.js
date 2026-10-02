@@ -207,21 +207,30 @@ module.exports = async function handler(req, res) {
     // ---------------------------------------------------------
     // EXDATE-POISTOJEN KÄSITTELY
     // ---------------------------------------------------------
+
     function getExdateKeys(event) {
       const keys = new Set();
       const timestamps = new Set();
+      const dates = new Set();
 
-      if (!event.exdate) return { keys, timestamps };
+      if (!event.exdate) return { keys, timestamps, dates };
 
       function addDate(value) {
         if (value instanceof Date && !Number.isNaN(value.getTime())) {
           keys.add(dateTimeKey(value));
           timestamps.add(value.getTime());
+          dates.add(dateKey(value));
           return;
         }
 
         if (typeof value === "string") {
-          // iCalendar-muoto YYYYMMDDTHHmmss tai UTC-pääte Z.
+          // Päivämääräavaimet, esim. 2026-10-02
+          if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            dates.add(value);
+            return;
+          }
+
+          // iCalendar-muoto YYYYMMDDTHHmmss tai UTC-pääte Z
           const match = value.match(
             /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/
           );
@@ -234,6 +243,7 @@ module.exports = async function handler(req, res) {
 
             keys.add(dateTimeKey(date));
             timestamps.add(date.getTime());
+            dates.add(`${y}-${mo}-${d}`);
             return;
           }
 
@@ -241,11 +251,12 @@ module.exports = async function handler(req, res) {
           if (!Number.isNaN(parsed.getTime())) {
             keys.add(dateTimeKey(parsed));
             timestamps.add(parsed.getTime());
+            dates.add(dateKey(parsed));
           }
           return;
         }
 
-        if (value && typeof value === "object" && !(value instanceof Date)) {
+        if (value && typeof value === "object") {
           addDate(value.date);
           addDate(value.start);
           addDate(value.value);
@@ -253,7 +264,12 @@ module.exports = async function handler(req, res) {
       }
 
       if (Array.isArray(event.exdate)) {
-        for (const value of event.exdate) addDate(value);
+        // node-ical voi tallentaa EXDATE-päivämäärät
+        // taulukon avaimiksi ja Date-arvot taulukon arvoiksi.
+        for (const [key, value] of Object.entries(event.exdate)) {
+          addDate(key);
+          addDate(value);
+        }
       } else if (event.exdate instanceof Date) {
         addDate(event.exdate);
       } else if (typeof event.exdate === "object") {
@@ -265,7 +281,7 @@ module.exports = async function handler(req, res) {
         addDate(event.exdate);
       }
 
-      return { keys, timestamps };
+      return { keys, timestamps, dates };
     }
 
     function isExcluded(exdates, occurrence, occurrenceStart) {
@@ -273,7 +289,9 @@ module.exports = async function handler(req, res) {
         exdates.timestamps.has(occurrence.getTime()) ||
         exdates.timestamps.has(occurrenceStart.getTime()) ||
         exdates.keys.has(dateTimeKey(occurrence)) ||
-        exdates.keys.has(dateTimeKey(occurrenceStart))
+        exdates.keys.has(dateTimeKey(occurrenceStart)) ||
+        exdates.dates.has(dateKey(occurrence)) ||
+        exdates.dates.has(dateKey(occurrenceStart))
       );
     }
 
