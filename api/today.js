@@ -313,6 +313,16 @@ module.exports = async function handler(req, res) {
       if (durationMinutes <= 0) return results;
 
       const exdates = getExdateKeys(event);
+      if (String(event.summary || "").includes("ABR")) {
+        console.log("[ABR EXDATE DEBUG]", {
+          summary: event.summary,
+          uid: event.uid,
+          start: event.start?.toISOString?.(),
+          rawExdate: event.exdate,
+          parsedExdateKeys: [...exdates.keys],
+          parsedExdateTimestamps: [...exdates.timestamps]
+        });
+      }
       let occurrences = [];
 
       try {
@@ -348,6 +358,18 @@ module.exports = async function handler(req, res) {
 
         const occurrenceKey = dateTimeKey(occurrenceStart);
 
+        if (String(event.summary || "").includes("ABR")) {
+          console.log("[ABR OCCURRENCE DEBUG]", {
+            summary: event.summary,
+            occurrence: occurrence.toISOString(),
+            occurrenceLocal: dateTimeKey(occurrence),
+            occurrenceStart: occurrenceStart.toISOString(),
+            occurrenceKey,
+            excluded: isExcluded(exdates, occurrence, occurrenceStart)
+          });
+        }
+
+        
         // Ohitetaan Outlookin EXDATE-kentässä poistetut kerrat.
         if (isExcluded(exdates, occurrence, occurrenceStart)) {
           continue;
