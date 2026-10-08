@@ -2056,11 +2056,6 @@ module.exports = async function handler(req, res) {
 
           .all-day-row {
           
-            display: grid;
-          
-            grid-template-columns:
-              38px 1fr;
-          
             height:
               ${allDayHeight}px;
           
