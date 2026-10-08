@@ -1880,7 +1880,7 @@ module.exports = async function handler(req, res) {
       );
 
 
-    const ALL_DAY_ROW_HEIGHT = 22;
+    const ALL_DAY_ROW_HEIGHT = 28;
     
     const allDayHeight =
       allDayRows * ALL_DAY_ROW_HEIGHT;
@@ -2055,6 +2055,11 @@ module.exports = async function handler(req, res) {
              =================================================== */
 
           .all-day-row {
+          
+            display: grid;
+          
+            grid-template-columns:
+              38px 1fr;
           
             height:
               ${allDayHeight}px;
