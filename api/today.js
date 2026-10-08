@@ -1880,7 +1880,7 @@ module.exports = async function handler(req, res) {
       );
 
 
-    const ALL_DAY_ROW_HEIGHT = 28;
+    const ALL_DAY_ROW_HEIGHT = 22;
     
     const allDayHeight =
       allDayRows * ALL_DAY_ROW_HEIGHT;
