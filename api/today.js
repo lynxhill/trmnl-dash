@@ -2055,6 +2055,10 @@ module.exports = async function handler(req, res) {
              =================================================== */
 
           .all-day-row {
+            display: grid;
+          
+            grid-template-columns:
+              38px 1fr;
           
             height:
               ${allDayHeight}px;
@@ -2062,6 +2066,11 @@ module.exports = async function handler(req, res) {
             flex-shrink: 0;
           
             border-bottom:
+              1px solid #000000;
+          }
+          
+          .all-day-spacer {
+            border-right:
               1px solid #000000;
           }
 
@@ -2389,6 +2398,8 @@ module.exports = async function handler(req, res) {
           <!-- KOKO PÄIVÄN TAPAHTUMAT -->
 
           <div class="all-day-row">
+          
+            <div class="all-day-spacer"></div>
           
             <div class="all-day-container">
           
