@@ -1746,7 +1746,7 @@ module.exports = async function handler(req, res) {
 
 
       const top =
-        event.allDayRow * 22;
+        event.allDayRow * ALL_DAY_ROW_HEIGHT;
 
 
       const title =
@@ -1880,8 +1880,10 @@ module.exports = async function handler(req, res) {
       );
 
 
+    const ALL_DAY_ROW_HEIGHT = 28;
+    
     const allDayHeight =
-      allDayRows * 22;
+      allDayRows * ALL_DAY_ROW_HEIGHT;
 
 
     // =========================================================
@@ -2053,41 +2055,14 @@ module.exports = async function handler(req, res) {
              =================================================== */
 
           .all-day-row {
-
-            display: grid;
-
-            grid-template-columns:
-              38px 1fr;
-
+          
             height:
               ${allDayHeight}px;
-
+          
             flex-shrink: 0;
-
+          
             border-bottom:
               1px solid #000000;
-          }
-
-
-          .all-day-label {
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            border-right:
-              1px solid #000000;
-
-            font-size: 8px;
-
-            color: #555555;
-
-            writing-mode:
-              vertical-rl;
-
-            transform:
-              rotate(180deg);
           }
 
 
@@ -2166,7 +2141,7 @@ module.exports = async function handler(req, res) {
 
             position: absolute;
 
-            height: 20px;
+            height: 25px;
 
             background: #555555;
 
@@ -2231,7 +2206,7 @@ module.exports = async function handler(req, res) {
             right: 5px;
 
             transform:
-              translateY(-7px);
+              translateY(1px);
 
             font-size: 13px;
 
@@ -2414,21 +2389,17 @@ module.exports = async function handler(req, res) {
           <!-- KOKO PÄIVÄN TAPAHTUMAT -->
 
           <div class="all-day-row">
-
-            <div class="all-day-label">
-              koko<br>päivä
-            </div>
-
+          
             <div class="all-day-container">
-
+          
               ${allDayLayout.events
                 .map(
                   renderAllDayEvent
                 )
                 .join("")}
-
+          
             </div>
-
+          
           </div>
 
 
